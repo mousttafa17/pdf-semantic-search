@@ -732,7 +732,8 @@ The implementation is considered complete when the following milestones have bee
 [✓] Qdrant collection is created automatically
 [✓] PDF text extraction works
 [✓] PDF extraction edge cases are tested
-[ ] Text chunking works
+[✓] Text chunking works
+[✓] Chunking edge cases are tested
 [ ] Embedding generation works
 [ ] Chunk embeddings are stored in Qdrant
 [ ] /ingest/ works
