@@ -730,7 +730,8 @@ The implementation is considered complete when the following milestones have bee
 [✓] Qdrant starts with the application
 [✓] Application waits for Qdrant readiness
 [✓] Qdrant collection is created automatically
-[ ] PDF text extraction works
+[✓] PDF text extraction works
+[✓] PDF extraction edge cases are tested
 [ ] Text chunking works
 [ ] Embedding generation works
 [ ] Chunk embeddings are stored in Qdrant
