@@ -4,6 +4,105 @@ A fully containerized FastAPI service for ingesting PDF documents, generating se
 
 The implementation is intentionally kept simple and modular for the scope of the assessment.
 
+## Quick Setup
+
+The project is fully containerized. The evaluator only needs Docker with Docker Compose; Python, `pytest`, Qdrant, and the application dependencies do not need to be installed on the host machine.
+
+### Prerequisites
+
+* Git
+* Docker Desktop, or Docker Engine with Docker Compose
+* A running Docker daemon
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd pdf-semantic-search
+```
+
+### 2. Start the evaluator-facing environment
+
+Run:
+
+```bash
+./orchestrate.sh --action start
+```
+
+This builds the application image and starts:
+
+* **FastAPI** at `http://localhost:8000`
+* **Qdrant** at `http://localhost:6333`
+
+The application image contains the configured embedding model:
+
+```text
+BAAI/bge-small-en-v1.5
+```
+
+The model is downloaded during the Docker image build so that the first ingestion request does not need to download the model.
+
+No Hugging Face token is required for normal evaluation.
+
+### 3. Verify the application
+
+Check the health endpoint:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "qdrant": "connected"
+}
+```
+
+The interactive Swagger/OpenAPI documentation is available at:
+
+```text
+http://localhost:8000/docs
+```
+
+### 4. Run the project test suite
+
+The project tests are included in the application image, so no host-side Python or `pytest` installation is required.
+
+Run:
+
+```bash
+docker compose exec app pytest tests/ -v
+```
+
+This executes the developer-authored unit, integration, and edge-case tests.
+
+### 5. Run the supplied evaluator suite
+
+The supplied `suite.py` is kept unchanged and mounted read-only into the application container.
+
+Run:
+
+```bash
+docker compose exec app pytest /app/suite.py -v
+```
+
+This executes the evaluator-provided tests using the same containerized runtime as the application.
+
+### 6. Stop and clean up
+
+To stop the application and Qdrant and remove the project environment:
+
+```bash
+./orchestrate.sh --action terminate
+```
+
+The `terminate` operation removes the containers, project network, and Qdrant persistent volume so that the next start begins from a clean state.
+
+> **Note:** Because the Qdrant volume is removed by `terminate`, stored vectors will be deleted. Use normal container restarts when persistence should be preserved.
+
 ## Architecture
 
 ```text
@@ -67,6 +166,8 @@ A successful response contains the uploaded filenames:
 }
 ```
 
+Multiple files can be sent in the same request by repeating the `input` field.
+
 ### `POST /search/`
 
 Accepts a natural-language search query.
@@ -95,7 +196,7 @@ A successful response contains ranked document chunks:
 
 ### `GET /health`
 
-Returns the application health status.
+Returns the application health status and Qdrant connectivity.
 
 Swagger/OpenAPI documentation is available at:
 
@@ -135,23 +236,27 @@ This means ordinary Python source changes do not require rebuilding the applicat
 
 Changes to `requirements.txt` or Docker configuration require a rebuild.
 
-For development, avoid `docker compose down -v` unless a complete Qdrant data reset is intentional.
+For development, avoid:
+
+```bash
+docker compose down -v
+```
+
+unless a complete Qdrant data reset is intentional.
 
 ## Testing
 
-Run the project test suite inside the application container:
+Testing is performed at multiple levels.
+
+### Project test suite
+
+Run the developer-authored tests inside the application container:
 
 ```bash
 docker compose exec app pytest tests/ -v
 ```
 
-Run the supplied evaluator test suite:
-
-```bash
-docker compose exec app pytest /app/suite.py -v
-```
-
-The current project test suite covers:
+The project test suite covers:
 
 * PDF extraction and invalid-document handling
 * Character-based chunking and overlap
@@ -164,6 +269,18 @@ The current project test suite covers:
 * API validation and response shapes
 * 400/500 error classification
 * Logging and observability behavior
+
+### Supplied evaluator suite
+
+Run the supplied `suite.py` unchanged inside the application container:
+
+```bash
+docker compose exec app pytest /app/suite.py -v
+```
+
+The evaluator-facing suite verifies the core start → ingest → search workflow.
+
+The supplied `suite.py` is not copied into the Docker image by the Dockerfile. It is mounted read-only by Docker Compose so the exact evaluator-provided file in the repository is used.
 
 ## Embedding and retrieval design
 
@@ -265,8 +382,11 @@ Example:
 
 ```text
 INFO app.services.ingestion - Ingestion started filename=sample.pdf document_id=...
+
 INFO app.services.ingestion - Ingestion completed filename=sample.pdf document_id=... chunks=1 duration_ms=...
+
 INFO app.services.search - Search started query_length=28 top_k=5
+
 INFO app.services.search - Search completed results=5 duration_ms=...
 ```
 
@@ -314,10 +434,12 @@ Directory-path ingestion is not supported through the HTTP API. Multipart upload
 
 ```text
 .
+
 ├── app/
 │   ├── api/
 │   │   ├── ingest.py
 │   │   └── search.py
+│   │
 │   ├── services/
 │   │   ├── chunking.py
 │   │   ├── embeddings.py
@@ -325,12 +447,15 @@ Directory-path ingestion is not supported through the HTTP API. Multipart upload
 │   │   ├── pdf.py
 │   │   ├── search.py
 │   │   └── vector_store.py
+│   │
 │   ├── config.py
 │   ├── dependencies.py
 │   ├── logging_config.py
 │   ├── models.py
 │   └── main.py
+│
 ├── tests/
+│
 ├── docker-compose.yml
 ├── docker-compose.dev.yml
 ├── Dockerfile
@@ -344,3 +469,5 @@ Directory-path ingestion is not supported through the HTTP API. Multipart upload
 ## Further design details
 
 See `ARCHITECTURE_DECISIONS.md` for the detailed rationale, alternatives, trade-offs, and evolution path behind the implementation.
+
+See `IMPLEMENTATION_PATH.md` for the incremental implementation and validation process.
