@@ -737,11 +737,11 @@ The implementation is considered complete when the following milestones have bee
 [✓] Embedding generation works
 [✓] Chunk embeddings are stored in Qdrant
 [✓] Document ingestion pipeline works
-[ ] /ingest/ works
-[ ] /search/ works
+[✓] /ingest/ works
+[✓] /search/ works
+[✓] Supplied suite.py passes
 [ ] Invalid input is handled cleanly
 [ ] Concurrent uploads are handled safely
-[ ] Supplied suite.py passes
 [ ] Documentation is complete
 [ ] Clean start/terminate flow verified
 ```

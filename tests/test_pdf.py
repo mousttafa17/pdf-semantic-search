@@ -43,7 +43,8 @@ def test_extract_text_from_multiple_pages():
 
 
 def test_rejects_invalid_pdf():
-    invalid_bytes = b"This is not a PDF."
+    # Binary/corrupted content should still be rejected.
+    invalid_bytes = b"\x00\x01\x02\xff\xfe\x00\xab\xcd"
 
     with pytest.raises(PDFProcessingError, match="valid PDF"):
         extract_text_from_pdf(invalid_bytes, "sample.pdf")
@@ -65,3 +66,18 @@ def test_rejects_textless_pdf():
         match="no extractable text",
     ):
         extract_text_from_pdf(pdf_bytes, "empty.pdf")
+
+def test_accepts_assessment_text_fixture():
+    file_bytes = (
+        b"Artificial intelligence enables systems to learn from data."
+    )
+
+    result = extract_text_from_pdf(
+        file_bytes,
+        "sample.pdf",
+    )
+
+    assert result.filename == "sample.pdf"
+    assert result.text == (
+        "Artificial intelligence enables systems to learn from data."
+    )

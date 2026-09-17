@@ -14,3 +14,7 @@ EMBEDDING_MODEL_NAME = os.getenv(
 EMBEDDING_DIMENSION = int(
     os.getenv("EMBEDDING_DIMENSION", "384")
 )
+
+SEARCH_TOP_K = int(
+    os.getenv("SEARCH_TOP_K", "5")
+)

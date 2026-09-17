@@ -176,3 +176,43 @@ class VectorStore:
                 f"expected {EMBEDDING_DIMENSION}, "
                 f"got {len(embedding)}"
             )
+
+    def search(
+        self,
+        query_embedding: Sequence[float],
+        limit: int = 5,
+    ) -> list:
+        """
+        Search for points most similar to a query embedding.
+
+        Returns Qdrant scored points ordered by decreasing similarity.
+        """
+        if not query_embedding:
+            raise VectorStoreError(
+                "Query embedding cannot be empty."
+            )
+
+        if limit <= 0:
+            raise VectorStoreError(
+                "Search limit must be greater than zero."
+            )
+
+        self._validate_embedding(query_embedding)
+
+        if not self.collection_exists():
+            return []
+
+        try:
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                query=list(query_embedding),
+                limit=limit,
+                with_payload=True,
+                with_vectors=False,
+            ).points
+        except Exception as exc:
+            raise VectorStoreError(
+                "Failed to search Qdrant."
+            ) from exc
+
+        return results

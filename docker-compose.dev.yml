@@ -3,6 +3,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./tests:/app/tests
+      - ./suite.py:/app/suite.py:ro
     command:
       [
         "uvicorn",

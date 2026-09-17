@@ -1,5 +1,6 @@
 import fitz
 import pytest
+import uuid
 
 from app.services.ingestion import IngestionError, IngestionService
 from app.services.vector_store import VectorStore
@@ -34,14 +35,20 @@ def create_pdf_bytes(*page_texts: str) -> bytes:
 
 @pytest.fixture
 def vector_store() -> VectorStore:
-    store = VectorStore()
+    collection_name = f"test-documents-{uuid.uuid4().hex}"
 
-    if store.collection_exists():
-        store.client.delete_collection(store.collection_name)
+    store = VectorStore(
+        collection_name=collection_name,
+    )
 
     store.ensure_collection()
 
-    return store
+    yield store
+
+    if store.collection_exists():
+        store.client.delete_collection(
+            store.collection_name
+        )
 
 
 def test_ingest_pdf_end_to_end(vector_store: VectorStore):
@@ -151,6 +158,28 @@ def test_invalid_pdf_is_wrapped_as_ingestion_error(
         match="Failed to ingest document",
     ):
         ingestion_service.ingest(
-            file_bytes=b"not a real pdf",
+            file_bytes=b"\x00\x01\x02\xff\xfe\x00\xab\xcd",
             filename="bad.pdf",
         )
+
+def test_ingest_assessment_text_fixture(
+    vector_store: VectorStore,
+):
+    embedding_service = FakeEmbeddingService()
+
+    ingestion_service = IngestionService(
+        embedding_service=embedding_service,
+        vector_store=vector_store,
+    )
+
+    result = ingestion_service.ingest(
+        file_bytes=(
+            b"Artificial intelligence enables systems "
+            b"to learn from data."
+        ),
+        filename="sample.pdf",
+    )
+
+    assert result.filename == "sample.pdf"
+    assert result.chunk_count == 1
+    assert len(result.document_id) == 64

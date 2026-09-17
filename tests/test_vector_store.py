@@ -16,15 +16,21 @@ def fake_embedding(seed: float) -> list[float]:
 
 
 @pytest.fixture
-def vector_store() -> VectorStore:
-    store = VectorStore()
+def vector_store():
+    collection_name = f"test-documents-{uuid.uuid4().hex}"
 
-    if store.collection_exists():
-        store.client.delete_collection(store.collection_name)
+    store = VectorStore(
+        collection_name=collection_name,
+    )
 
     store.ensure_collection()
 
-    return store
+    yield store
+
+    if store.collection_exists():
+        store.client.delete_collection(
+            store.collection_name
+        )
 
 
 def test_collection_exists(vector_store: VectorStore):
