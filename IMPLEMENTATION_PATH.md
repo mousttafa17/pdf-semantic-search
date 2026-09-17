@@ -1158,8 +1158,8 @@ Top-K chunks
 [✓] Observability/logging is finalized
 [✓] Logging regression tests are implemented
 [✓] README documentation is complete
-[ ] Clean evaluator start/terminate flow is verified
-[ ] Final end-to-end evaluator test is completed
+[✓] Clean evaluator start/terminate flow is verified
+[✓] Final end-to-end evaluator test is completed
 ```
 
 ---
