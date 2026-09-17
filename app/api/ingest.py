@@ -1,22 +1,22 @@
-from fastapi import APIRouter, File, UploadFile
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.services.embeddings import get_embedding_service
+from app.dependencies import get_ingestion_service
 from app.services.ingestion import IngestionError, IngestionService
-from app.services.vector_store import VectorStore
 
 
 router = APIRouter()
-
-ingestion_service = IngestionService(
-    embedding_service=get_embedding_service(),
-    vector_store=VectorStore(),
-)
 
 
 @router.post("/ingest/")
 def ingest_files(
     input: list[UploadFile] = File(...),
+    ingestion_service: Annotated[
+        IngestionService,
+        Depends(get_ingestion_service),
+    ] = None,
 ) -> JSONResponse:
     """Ingest one or more PDF documents."""
 
@@ -50,7 +50,9 @@ def ingest_files(
                 return JSONResponse(
                     status_code=400,
                     content={
-                        "error": f"Uploaded file '{filename}' is empty."
+                        "error": (
+                            f"Uploaded file '{filename}' is empty."
+                        )
                     },
                 )
 

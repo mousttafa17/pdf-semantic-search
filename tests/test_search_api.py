@@ -1,16 +1,15 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from app.api import search as search_api
+from app.dependencies import get_search_service
 from app.main import app
-from app.services.search import SearchResult
+from app.services.search import SearchError, SearchResult
 
 
 class FakeSearchService:
-    """Fake search service for API contract tests."""
-
     def search(self, query: str) -> list[SearchResult]:
         if not query.strip():
-            raise ValueError("Query cannot be empty.")
+            raise SearchError("Query cannot be empty.")
 
         return [
             SearchResult(
@@ -21,18 +20,19 @@ class FakeSearchService:
         ]
 
 
-client = TestClient(app)
-
-
-def test_search_endpoint_returns_expected_shape(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        search_api,
-        "search_service",
-        FakeSearchService(),
+@pytest.fixture
+def client():
+    app.dependency_overrides[get_search_service] = (
+        lambda: FakeSearchService()
     )
 
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
+
+
+def test_search_endpoint_returns_expected_shape(client):
     response = client.post(
         "/search/",
         json={"query": "How does semantic search work?"},
@@ -54,27 +54,14 @@ def test_search_endpoint_returns_expected_shape(
     )
 
 
-def test_search_endpoint_rejects_empty_query(
-    monkeypatch,
-):
-    class EmptyQueryService:
-        def search(self, query: str):
-            from app.services.search import SearchError
-
-            raise SearchError("Query cannot be empty.")
-
-    monkeypatch.setattr(
-        search_api,
-        "search_service",
-        EmptyQueryService(),
-    )
-
+def test_search_endpoint_rejects_empty_query(client):
     response = client.post(
         "/search/",
         json={"query": ""},
     )
 
     assert response.status_code == 400
+
     assert response.json() == {
         "error": "Query cannot be empty."
     }

@@ -1,17 +1,14 @@
-import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from qdrant_client import QdrantClient
 
 from app.api.ingest import router as ingest_router
 from app.api.search import router as search_router
-from app.config import QDRANT_URL
-from app.services.vector_store import VectorStore
+from app.dependencies import get_vector_store
 
 
-qdrant_client = QdrantClient(url=QDRANT_URL)
-vector_store = VectorStore()
+vector_store = get_vector_store()
+qdrant_client = vector_store.client
 
 
 def wait_for_qdrant(

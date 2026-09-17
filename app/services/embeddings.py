@@ -1,5 +1,3 @@
-from functools import lru_cache
-
 from fastembed import TextEmbedding
 
 from app.config import (
@@ -121,9 +119,3 @@ class EmbeddingService:
                     f"expected {EMBEDDING_DIMENSION}, "
                     f"got {len(embedding)}"
                 )
-
-
-@lru_cache(maxsize=1)
-def get_embedding_service() -> EmbeddingService:
-    """Return a shared embedding service instance."""
-    return EmbeddingService()

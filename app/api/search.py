@@ -1,19 +1,16 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.dependencies import get_search_service
 from app.models import SearchRequest, SearchResponse
-from app.services.embeddings import EmbeddingService, EmbeddingError
-from app.services.search import SearchService, SearchError
-from app.services.vector_store import VectorStore, VectorStoreError
+from app.services.embeddings import EmbeddingError
+from app.services.search import SearchError, SearchService
+from app.services.vector_store import VectorStoreError
 
 
 router = APIRouter()
-
-
-search_service = SearchService(
-    embedding_service=EmbeddingService(),
-    vector_store=VectorStore(),
-)
 
 
 @router.post(
@@ -22,8 +19,13 @@ search_service = SearchService(
 )
 def search_documents(
     request: SearchRequest,
+    search_service: Annotated[
+        SearchService,
+        Depends(get_search_service),
+    ],
 ) -> SearchResponse | JSONResponse:
     """Perform semantic search over ingested document chunks."""
+
     try:
         results = search_service.search(request.query)
 
@@ -46,7 +48,7 @@ def search_documents(
 
     except EmbeddingError as exc:
         return JSONResponse(
-            status_code=400,
+            status_code=500,
             content={"error": str(exc)},
         )
 
