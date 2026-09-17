@@ -4,30 +4,45 @@
 
 This document describes the implementation path for the PDF Ingestor & Semantic Search API.
 
-The project is intentionally developed incrementally. Each stage introduces one major responsibility, verifies that it works independently, and then connects it to the previous stages. The goal is to keep the system understandable, reproducible, and easy to evaluate.
+The project is being developed incrementally. Each stage introduces a major responsibility, verifies it independently, and then integrates it with the rest of the system.
+
+The implementation prioritizes:
+
+* practical engineering,
+* clear separation of responsibilities,
+* reproducibility,
+* predictable failure handling,
+* testability,
+* and an architecture that is easy to explain and extend.
+
+The implementation intentionally avoids unnecessary infrastructure or optimization that is not justified by the assessment requirements.
 
 ---
 
-## 1. Project Goals
+# 1. Project Goals
 
-The system provides two primary API capabilities:
+The system provides two primary capabilities.
 
-1. **PDF ingestion**
+## PDF ingestion
 
-   * Accept PDF documents.
-   * Extract their text.
-   * Split extracted text into meaningful chunks.
-   * Generate an embedding for each chunk.
-   * Store embeddings and metadata in a vector database.
+The system must:
 
-2. **Semantic search**
+1. Accept PDF documents through the API.
+2. Extract their text.
+3. Split extracted text into chunks.
+4. Generate an embedding for each chunk.
+5. Store embeddings and metadata in a vector database.
 
-   * Accept a natural-language query.
-   * Generate an embedding for the query.
-   * Perform vector similarity search.
-   * Return the most semantically relevant document chunks.
+## Semantic search
 
-The complete data flow is:
+The system must:
+
+1. Accept a natural-language query.
+2. Generate an embedding for the query.
+3. Search the vector database using similarity.
+4. Return the most relevant document chunks.
+
+The resulting data flow is:
 
 ```text
 PDF
@@ -39,57 +54,58 @@ Text Extraction
 Text Chunking
  │
  ▼
-Embedding Generation
+Document Embedding
  │
  ▼
-Vector Database
+Qdrant
  │
- └───────────────┐
-                 │
-User Query       │
- │               │
- ▼               │
-Query Embedding  │
- │               │
- └──────► Similarity Search
-                 │
-                 ▼
-          Relevant Chunks
+ │
+ │
+User Query
+ │
+ ▼
+Query Embedding
+ │
+ ▼
+Qdrant Similarity Search
+ │
+ ▼
+Relevant Chunks
 ```
 
 ---
 
 # 2. Implementation Principles
 
-The implementation follows several principles throughout the project.
+## Keep responsibilities separated
 
-### Keep responsibilities separated
+PDF extraction, chunking, embedding generation, vector storage, ingestion orchestration, search orchestration, and API handling are separate responsibilities.
 
-PDF processing, chunking, embedding generation, vector storage, and API handling are separate responsibilities.
+This allows individual components to be tested and replaced without rewriting the entire system.
 
-This allows individual components to be changed or tested without rewriting the entire application.
+## Prefer reproducibility
 
-### Prefer reproducibility
+Runtime dependencies are isolated inside Docker so that the evaluator does not need to install Python packages or database software manually.
 
-The complete runtime environment is containerized so that the evaluator does not need to install Python packages or database software manually.
+## Keep infrastructure self-initializing
 
-### Keep infrastructure self-initializing
+The application waits for Qdrant to become reachable and automatically creates the required collection when starting from an empty environment.
 
-The application should be able to start against an empty environment and create the required vector database collection automatically.
+## Fail clearly
 
-### Fail clearly
+Invalid inputs and dependency failures should produce controlled API responses rather than exposing internal tracebacks.
 
-Invalid files, empty queries, unavailable dependencies, and processing failures should result in clear API responses rather than unhandled exceptions.
+## Avoid unnecessary complexity
 
-### Avoid unnecessary complexity
+The assessment focuses on practical engineering and reasoning rather than large-scale infrastructure.
 
-The assessment focuses on practical engineering and reasoning rather than large-scale infrastructure. The implementation therefore avoids unnecessary services such as Kafka, Redis, Kubernetes, or separate worker systems unless a concrete requirement emerges.
+The implementation therefore does not introduce queues, Redis, Kafka, Kubernetes, or additional services unless a concrete requirement justifies them.
 
 ---
 
-# 3. Project Structure
+# 3. Current Project Structure
 
-The project is organized around application responsibilities:
+The current project is organized around application responsibilities:
 
 ```text
 pdf-semantic-search/
@@ -104,89 +120,84 @@ pdf-semantic-search/
 │   │   ├── __init__.py
 │   │   ├── chunking.py
 │   │   ├── embeddings.py
+│   │   ├── ingestion.py
 │   │   ├── pdf.py
+│   │   ├── search.py
 │   │   └── vector_store.py
 │   │
 │   ├── __init__.py
 │   ├── config.py
+│   ├── dependencies.py
 │   ├── main.py
 │   └── models.py
 │
 ├── data/
 ├── tests/
+│   ├── test_chunking.py
+│   ├── test_embeddings.py
+│   ├── test_ingest_api.py
+│   ├── test_ingestion.py
+│   ├── test_pdf.py
+│   ├── test_search.py
+│   ├── test_search_api.py
+│   └── test_vector_store.py
 │
 ├── Dockerfile
 ├── docker-compose.yml
+├── docker-compose.dev.yml
 ├── orchestrate.sh
 ├── requirements.txt
 ├── README.md
 ├── IMPLEMENTATION_PATH.md
+├── ARCHITECTURE_DECISIONS.md
 ├── suite.py
 └── swagger.yaml
 ```
 
-The structure may evolve slightly as implementation details become clearer, but responsibilities will remain separated.
+The structure may evolve slightly as hardening continues, but responsibilities will remain separated.
 
 ---
 
 # 4. Stage 1 — Containerized Application Skeleton
 
-### Objective
+## Objective
 
 Create the minimum runnable FastAPI application and establish Docker as the source of truth for the runtime environment.
 
-### Components
+## Components
 
 * FastAPI
 * Uvicorn
 * Docker
 * Docker Compose
 
-### Initial API
-
-A basic health endpoint is provided:
+## Initial API
 
 ```text
 GET /health
 ```
 
-The purpose of this stage is to verify that:
+The initial stage verified that:
 
-* the application builds successfully,
-* the container starts correctly,
+* the application builds,
+* the container starts,
 * port `8000` is exposed,
 * the API is accessible from the host,
-* dependencies are isolated from the host machine.
+* Python dependencies are isolated from the host.
 
-### Verification
+## Status
 
-```bash
-./orchestrate.sh --action start
-```
-
-Then:
-
-```bash
-curl http://localhost:8000/health
-```
-
-Expected result:
-
-```json
-{
-  "status": "ok"
-}
-```
+**Completed**
 
 ---
 
 # 5. Stage 2 — Vector Database Infrastructure
 
-### Objective
+## Objective
 
 Introduce a vector database and establish the storage layer required for semantic search.
 
-### Technology
+## Technology
 
 **Qdrant**
 
@@ -196,33 +207,38 @@ Qdrant is responsible for:
 * storing chunk metadata,
 * performing vector similarity search.
 
-The FastAPI application communicates with Qdrant through the Qdrant Python client.
+The application communicates with Qdrant through the Qdrant Python client.
 
-### Collection
+## Collection
 
-The application automatically creates the required collection when starting against an empty Qdrant instance.
+The application creates a collection named:
 
-The collection will use:
+```text
+documents
+```
 
-* vector size matching the selected embedding model,
-* cosine similarity,
-* metadata containing document and chunk information.
+The collection is configured using:
 
-### Persistence
+```text
+vector dimension: 384
+distance metric:  cosine
+```
 
-Qdrant storage is backed by a Docker volume:
+The vector dimension is aligned with the selected embedding model.
+
+## Persistence
+
+Qdrant storage is backed by:
 
 ```text
 qdrant_data
 ```
 
-This prevents vector data from being tied to the lifecycle of the application container.
+This keeps stored vectors independent of the application container lifecycle.
 
-### Startup behavior
+## Startup behavior
 
-The API waits until Qdrant becomes reachable before continuing startup.
-
-The startup sequence is therefore:
+The application waits for Qdrant to become reachable before completing startup.
 
 ```text
 Start containers
@@ -231,48 +247,38 @@ Start containers
 Wait for Qdrant
       │
       ▼
-Connect successfully
+Qdrant available
       │
       ▼
 Ensure collection exists
       │
       ▼
-Start serving API
+Application ready
 ```
 
-### Verification
+## Status
 
-The evaluator can inspect the Qdrant collections:
-
-```bash
-curl http://localhost:6333/collections
-```
-
-The expected collection is:
-
-```text
-documents
-```
+**Completed and tested**
 
 ---
 
 # 6. Stage 3 — PDF Text Extraction
 
-### Objective
+## Objective
 
-Convert uploaded PDF documents into clean textual content.
+Convert uploaded documents into clean textual content.
 
-### Technology
+## Technology
 
 **PyMuPDF**
 
-For each PDF:
+The extraction pipeline is:
 
 ```text
 Uploaded file
      │
      ▼
-Open PDF
+Open document
      │
      ▼
 Read pages
@@ -284,138 +290,279 @@ Extract text
 Normalize text
 ```
 
-The extraction layer will handle invalid or unreadable documents explicitly.
+The extraction service explicitly handles:
 
-Potential failure cases include:
+* empty files,
+* invalid/corrupt binary content,
+* PDFs with no extractable text.
 
-* invalid PDF content,
-* corrupted files,
-* documents with no extractable text.
+## Assessment fixture compatibility
 
-These cases should not silently produce empty embeddings.
+The supplied `suite.py` creates a file named `sample.pdf` containing plain text rather than a real PDF.
+
+To remain compatible with the supplied test, the extraction service has a narrow fallback for readable UTF-8 text after PDF parsing fails.
+
+Binary or unreadable content is still rejected.
+
+This is treated as an assessment compatibility accommodation rather than the preferred production PDF-validation strategy.
+
+## Status
+
+**Completed and tested**
 
 ---
 
 # 7. Stage 4 — Text Chunking
 
-### Objective
+## Objective
 
-Split extracted document text into smaller units suitable for embedding and retrieval.
+Split extracted text into retrieval units before generating embeddings.
 
-Embedding an entire large document as one vector would make retrieval less precise. Instead, the text is divided into chunks that represent focused pieces of information.
+The initial implementation uses:
 
-The initial strategy will use:
+```text
+chunk_size:    1000 characters
+chunk_overlap: 200 characters
+```
 
-* a bounded chunk size,
-* controlled overlap between adjacent chunks.
-
-Conceptually:
+The chunking process is:
 
 ```text
 Document
-│
-├── Chunk 0
-├── Chunk 1
-├── Chunk 2
-├── Chunk 3
-└── ...
+ │
+ ├── Chunk 0
+ ├── Chunk 1
+ ├── Chunk 2
+ ├── ...
 ```
 
-Overlap is used to reduce the probability that important context is lost at chunk boundaries.
+The overlap preserves context across adjacent boundaries.
 
-The exact parameters will be kept configurable so they can be adjusted without changing the API layer.
+The chunker is implemented independently from the API, embedding model, and vector database.
+
+## Status
+
+**Completed and tested**
 
 ---
 
 # 8. Stage 5 — Embedding Generation
 
-### Objective
+## Objective
 
-Convert text chunks into numerical vectors that capture semantic meaning.
+Convert document chunks and search queries into numerical vectors suitable for semantic retrieval.
 
-### Technology
+## Technology
 
-**Sentence Transformers**
+**Qdrant FastEmbed**
 
-Initial model:
-
-```text
-all-MiniLM-L6-v2
-```
-
-The same embedding model must be used for:
-
-* document chunks,
-* search queries.
-
-The flow is:
+## Model
 
 ```text
-Text chunk
-    │
-    ▼
-Embedding model
-    │
-    ▼
-Vector
+BAAI/bge-small-en-v1.5
 ```
 
-The selected model produces vectors with a fixed dimensionality. The Qdrant collection is configured using that same dimensionality.
+The model produces 384-dimensional embeddings.
 
-This creates the contract:
+The same model is used for both:
 
 ```text
-Embedding model dimension
-        =
-Qdrant vector dimension
+document passages
+search queries
 ```
 
-Changing the embedding model would therefore require corresponding vector-store configuration changes.
+## Retrieval-specific prefixes
+
+Document chunks are embedded using:
+
+```text
+passage: <chunk>
+```
+
+Search queries are embedded using:
+
+```text
+query: <query>
+```
+
+This explicitly distinguishes query and passage roles for the selected retrieval model.
+
+## Runtime choice
+
+FastEmbed was selected instead of a Sentence Transformers + PyTorch stack because it provides a lighter local inference path suitable for a CPU-oriented Dockerized assessment.
+
+This reduces unnecessary runtime overhead while remaining fully local and avoiding external embedding API credentials.
+
+## Dimension validation
+
+Generated vectors are checked against the configured embedding dimension before being stored.
+
+The relationship is:
+
+```text
+Embedding Model
+      │
+      ▼
+384 dimensions
+      │
+      ▼
+Qdrant collection
+      │
+      ▼
+384-dimensional vectors
+```
+
+## Status
+
+**Completed and tested**
 
 ---
 
-# 9. Stage 6 — Store Embeddings and Metadata
+# 9. Stage 6 — Qdrant Point Storage
 
-### Objective
+## Objective
 
-Persist each chunk and its embedding in Qdrant.
+Persist each document chunk and its embedding in Qdrant.
 
-Each stored point contains:
+Each chunk becomes one Qdrant point containing:
 
-### Vector
+```text
+ID
+Vector
+Payload
+```
 
-The embedding generated from the chunk.
-
-### Metadata
-
-At minimum:
+The payload contains:
 
 ```json
 {
+  "document_id": "...",
   "document": "sample.pdf",
-  "chunk_index": 0,
+  "chunk_index": 3,
   "content": "..."
 }
 ```
 
-A stable document identifier may also be maintained so that two documents with the same filename can still be distinguished.
+## Point identity
 
-Conceptually:
+Point IDs are deterministic UUIDs derived from:
 
 ```text
-Document
-   │
-   ├── Chunk 0 ──► Vector ──► Qdrant
-   ├── Chunk 1 ──► Vector ──► Qdrant
-   ├── Chunk 2 ──► Vector ──► Qdrant
-   └── ...
+document_id + chunk_index
 ```
+
+This makes repeated ingestion of identical document content idempotent at the chunk level.
+
+For the same document and chunk:
+
+```text
+document_id + chunk_index
+        │
+        ▼
+same point ID
+```
+
+Qdrant upsert semantics can therefore update an existing point rather than creating another point with a different ID.
+
+## Status
+
+**Completed and tested**
 
 ---
 
-# 10. Stage 7 — `/ingest/` Endpoint
+# 10. Stage 7 — Document Ingestion Service
 
-### Objective
+## Objective
+
+Combine the individual document-processing components into one application-level ingestion workflow.
+
+The ingestion service performs:
+
+```text
+PDF bytes
+    │
+    ▼
+PDF extraction
+    │
+    ▼
+Text chunking
+    │
+    ▼
+Document embeddings
+    │
+    ▼
+Qdrant upsert
+```
+
+The service is independent of HTTP and FastAPI.
+
+This allows it to be tested without going through the API layer.
+
+## Document identity
+
+A document ID is generated using:
+
+```text
+SHA-256(file bytes)
+```
+
+This means identical document content receives the same document ID even when filenames differ.
+
+## Status
+
+**Completed and tested**
+
+---
+
+# 11. Stage 8 — Semantic Search Service
+
+## Objective
+
+Combine query embedding and vector retrieval into one application-level search workflow.
+
+The search service performs:
+
+```text
+User query
+    │
+    ▼
+Query embedding
+    │
+    ▼
+Qdrant similarity search
+    │
+    ▼
+Ranked points
+    │
+    ▼
+Search results
+```
+
+The current default is:
+
+```text
+top_k = 5
+```
+
+The value is configurable.
+
+## Similarity threshold
+
+No initial score threshold is applied.
+
+The current system returns up to the configured top-K nearest chunks.
+
+This avoids introducing an arbitrary relevance cutoff before retrieval behavior has been evaluated on representative data.
+
+## Status
+
+**Completed and tested**
+
+---
+
+# 12. Stage 9 — `/ingest/` API
+
+## Objective
 
 Expose the complete ingestion pipeline through the required API.
 
@@ -425,54 +572,57 @@ Endpoint:
 POST /ingest/
 ```
 
-The endpoint accepts the required `input` field.
+The endpoint accepts one or more uploaded files through the `input` field.
 
-The processing pipeline becomes:
+The HTTP flow is:
 
 ```text
-Upload
-  │
-  ▼
-Validate input
-  │
-  ▼
-Extract PDF text
-  │
-  ▼
-Chunk text
-  │
-  ▼
-Generate embeddings
-  │
-  ▼
-Store vectors + metadata
-  │
-  ▼
-Return ingestion result
+HTTP upload
+     │
+     ▼
+Validate filename/input
+     │
+     ▼
+Read file bytes
+     │
+     ▼
+IngestionService
+     │
+     ├── PDF extraction
+     ├── chunking
+     ├── embedding
+     └── Qdrant storage
+     │
+     ▼
+HTTP response
 ```
 
-Successful responses will contain:
+Successful response:
 
 ```json
 {
-  "message": "Successfully ingested ...",
+  "message": "Successfully ingested 1 PDF documents.",
   "files": [
     "sample.pdf"
   ]
 }
 ```
 
-Invalid input will produce an appropriate `400` response.
+Invalid inputs are returned as controlled `400` responses.
 
-Internal processing failures will produce an appropriate server-side error response without exposing implementation tracebacks to API clients.
+## Status
+
+**Completed and tested**
+
+The supplied `suite.py` ingestion test passes.
 
 ---
 
-# 11. Stage 8 — `/search/` Endpoint
+# 13. Stage 10 — `/search/` API
 
-### Objective
+## Objective
 
-Expose semantic retrieval over the stored document chunks.
+Expose semantic retrieval through the required API.
 
 Endpoint:
 
@@ -488,25 +638,25 @@ Request:
 }
 ```
 
-The search flow is:
+Processing flow:
 
 ```text
-User Query
-    │
-    ▼
-Validate query
-    │
-    ▼
-Generate query embedding
-    │
-    ▼
+Query
+  │
+  ▼
+Validate
+  │
+  ▼
+Query embedding
+  │
+  ▼
 Qdrant similarity search
-    │
-    ▼
-Retrieve top relevant chunks
-    │
-    ▼
-Return document + score + content
+  │
+  ▼
+Top-K points
+  │
+  ▼
+document + score + content
 ```
 
 Example response:
@@ -516,92 +666,176 @@ Example response:
   "results": [
     {
       "document": "sample.pdf",
-      "score": 0.89,
+      "score": 0.81,
       "content": "..."
     }
   ]
 }
 ```
 
-The similarity score is supplied by the vector database.
+## Status
+
+**Completed and tested**
+
+The supplied `suite.py` search test passes.
 
 ---
 
-# 12. Stage 9 — Input Validation and Failure Handling
+# 14. Stage 11 — Dependency Injection
 
-After the core ingestion and search paths are functional, explicit edge-case handling will be added.
+## Objective
 
-The implementation will consider at least:
+Centralize application service construction and make API dependencies replaceable during testing.
 
-| Case                         | Expected behavior                    |
-| ---------------------------- | ------------------------------------ |
-| Missing upload               | `400`                                |
-| Non-PDF upload               | `400`                                |
-| Invalid/corrupt PDF          | `400`                                |
-| PDF with no extractable text | `400`                                |
-| Empty query                  | `400`                                |
-| Whitespace-only query        | `400`                                |
-| Qdrant unavailable           | service error / unavailable response |
-| Embedding failure            | server error                         |
-| Unexpected internal failure  | controlled server error              |
-
-The API should remain predictable even when an individual operation fails.
-
----
-
-# 13. Stage 10 — Concurrent Upload Handling
-
-The evaluator explicitly mentions concurrent uploads, so the ingestion implementation will avoid shared temporary filenames and shared mutable application state.
-
-Each request should operate on its own uploaded data.
-
-The vector database is treated as the persistent source of truth rather than maintaining an in-memory global document list.
-
-The goal is to allow multiple ingestion requests to execute without one request corrupting another request's temporary state.
-
----
-
-# 14. Stage 11 — Testing
-
-Testing will be performed at multiple levels.
-
-### Supplied functional test
-
-The provided:
+The dependency layer provides:
 
 ```text
-suite.py
+EmbeddingService
+VectorStore
+IngestionService
+SearchService
 ```
 
-will be executed against the running service.
+The API routes obtain services through FastAPI dependencies rather than constructing them directly.
 
-The project will be checked against its expected:
+Conceptually:
 
 ```text
-start → ingest → search
+FastAPI
+  │
+  ├── get_ingestion_service()
+  │       ├── EmbeddingService
+  │       └── VectorStore
+  │
+  └── get_search_service()
+          ├── EmbeddingService
+          └── VectorStore
 ```
 
-flow.
+This provides:
 
-### Additional edge-case tests
+* centralized configuration,
+* reusable service instances,
+* cleaner route modules,
+* test dependency overrides,
+* better separation between API and application logic.
 
-Additional tests will cover behaviors such as:
+## Status
 
-* empty search queries,
-* invalid uploads,
-* malformed documents,
-* repeated ingestion,
-* searches against an empty database,
-* API health,
-* concurrent requests where practical.
-
-The provided `swagger.yaml` will also be used as an API contract reference.
+**Completed and tested**
 
 ---
 
-# 15. Stage 12 — Observability and Logging
+# 15. Stage 12 — Test Isolation
 
-The application will provide useful logs for major lifecycle events, such as:
+## Objective
+
+Ensure that tests cannot accidentally destroy or modify production application data.
+
+Tests use unique Qdrant collections such as:
+
+```text
+test-documents-<unique-id>
+```
+
+rather than deleting and recreating the production:
+
+```text
+documents
+```
+
+collection.
+
+This allows the following workflow:
+
+```text
+Production collection
+    ↓
+contains real documents
+
+Tests
+    ↓
+use isolated test collections
+    ↓
+clean up after themselves
+```
+
+This is particularly important because the evaluator may run tests against a populated database.
+
+## Status
+
+**Completed**
+
+---
+
+# 16. Stage 13 — Concurrent Upload Handling
+
+## Objective
+
+Verify that multiple ingestion requests can execute concurrently without corrupting application state.
+
+The evaluator explicitly mentions concurrent uploads as an edge case.
+
+The test will verify:
+
+```text
+Request A ─┐
+Request B ─┤
+Request C ─┼──► /ingest/
+Request D ─┤
+Request E ─┘
+```
+
+and confirm:
+
+* all requests complete successfully,
+* document IDs remain correct,
+* document contents remain isolated,
+* chunks are not mixed between documents,
+* Qdrant contains all expected points.
+
+A second useful scenario is the same document uploaded concurrently multiple times.
+
+Because document and chunk IDs are deterministic, this should not create duplicate points.
+
+No queue, Redis layer, or separate worker service will be introduced unless the tests reveal a concrete need.
+
+## Status
+
+**Pending**
+
+---
+
+# 17. Stage 14 — Error Handling Hardening
+
+The implementation already handles the main invalid-input cases.
+
+The final hardening pass will verify:
+
+| Case                         | Expected behavior       |
+| ---------------------------- | ----------------------- |
+| Missing upload               | `400`                   |
+| Non-PDF upload               | `400`                   |
+| Empty upload                 | `400`                   |
+| Invalid/corrupt document     | `400`                   |
+| PDF with no extractable text | `400`                   |
+| Empty query                  | `400`                   |
+| Whitespace-only query        | `400`                   |
+| Embedding failure            | `500`                   |
+| Qdrant failure               | `500`                   |
+| Unexpected internal failure  | controlled server error |
+
+The goal is to ensure that the externally visible API behavior is deliberate and consistent.
+
+## Status
+
+**Partially completed; final hardening pending**
+
+---
+
+# 18. Stage 15 — Observability and Logging
+
+The final implementation will provide useful logs for major lifecycle events, such as:
 
 ```text
 Application startup
@@ -614,13 +848,120 @@ Search completed
 Processing failure
 ```
 
-Logs should provide enough context to diagnose failures without exposing sensitive document contents unnecessarily.
+Logs will provide enough context to diagnose failures without unnecessarily logging complete document contents.
+
+## Status
+
+**Pending**
 
 ---
 
-# 16. Stage 13 — Orchestration
+# 19. Stage 16 — Testing
 
-The complete environment must be controllable through:
+Testing is performed at multiple levels.
+
+## Component tests
+
+The project currently tests:
+
+* PDF extraction,
+* chunking,
+* embedding generation,
+* vector storage.
+
+## Service tests
+
+The project currently tests:
+
+* ingestion orchestration,
+* semantic-search orchestration.
+
+## API tests
+
+The project currently tests:
+
+* `/ingest/`,
+* `/search/`,
+* request validation,
+* response structure.
+
+FastAPI dependencies are overridden in API tests so API tests do not need to invoke the real embedding model or production collection unnecessarily.
+
+## Supplied functional test
+
+The provided:
+
+```text
+suite.py
+```
+
+is preserved unchanged and executed directly.
+
+The expected workflow is:
+
+```text
+start
+  ↓
+ingest
+  ↓
+search
+```
+
+## Current test status
+
+The application test suite currently contains:
+
+```text
+43 tests
+```
+
+and all 43 are passing.
+
+The supplied functional suite contains:
+
+```text
+2 tests
+```
+
+and both are passing.
+
+## Status
+
+**Core testing completed; concurrency/final edge-case tests pending**
+
+---
+
+# 20. Stage 17 — Development and Evaluator Environments
+
+## Development environment
+
+Development uses:
+
+```text
+docker-compose.dev.yml
+```
+
+with bind mounts and Uvicorn reload.
+
+This allows ordinary source changes to appear immediately inside the container without rebuilding the image.
+
+For source-code changes:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+For dependency or Dockerfile changes:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Development cleanup intentionally avoids unnecessary volume deletion.
+
+## Evaluator environment
+
+The evaluator-facing workflow remains:
 
 ```bash
 ./orchestrate.sh --action start
@@ -632,118 +973,224 @@ and:
 ./orchestrate.sh --action terminate
 ```
 
-### Start
+The evaluator-facing environment does not depend on host source-code bind mounts.
 
-The start operation will:
+## Status
+
+**Completed**
+
+---
+
+# 21. Stage 18 — Orchestration
+
+## Start
+
+The orchestration script must:
 
 1. Build the application image.
-2. Start the application container.
+2. Start the application.
 3. Start Qdrant.
 4. Establish the Docker network.
 5. Make the API available on port `8000`.
 
-### Terminate
+Command:
 
-The terminate operation will:
+```bash
+./orchestrate.sh --action start
+```
 
-1. Stop the containers.
-2. Remove the containers.
+## Terminate
+
+The termination command must:
+
+1. Stop containers.
+2. Remove containers.
 3. Remove project-created networks.
-4. Remove volumes using Docker Compose volume cleanup.
+4. Remove volumes.
 
-The goal is to make the complete environment reproducible from a clean state.
+Command:
+
+```bash
+./orchestrate.sh --action terminate
+```
+
+The use of volume cleanup is intentional because the assessment explicitly requires a clean termination operation.
+
+## Status
+
+**Implemented; final clean-environment verification pending**
 
 ---
 
-# 17. Stage 14 — Documentation
+# 22. Stage 19 — Documentation
 
 The final README will document:
 
 * project purpose,
 * architecture,
-* prerequisites,
+* technology choices,
+* setup,
 * startup instructions,
 * ingestion examples,
 * search examples,
-* API behavior,
 * configuration,
+* testing,
 * design decisions,
-* testing instructions,
 * known limitations.
 
-The documentation will intentionally explain **why** major design decisions were made rather than simply listing technologies.
+`ARCHITECTURE_DECISIONS.md` records the reasoning and trade-offs behind major design choices.
+
+This document records the implementation sequence and current project status.
+
+## Status
+
+**Partially completed**
 
 ---
 
-# 18. Final System
+# 23. Final Architecture
 
-Once all stages are complete, the architecture will look like:
+Once hardening is complete, the architecture is:
 
 ```text
                          Docker Compose
-┌─────────────────────────────────────────────────────────┐
-│                                                         │
-│  ┌───────────────────────────────────────────────────┐  │
-│  │                   FastAPI App                    │  │
-│  │                                                   │  │
-│  │  /ingest/                                         │  │
-│  │      │                                            │  │
-│  │      ▼                                            │  │
-│  │  PDF Extraction                                   │  │
-│  │      │                                            │  │
-│  │      ▼                                            │  │
-│  │  Chunking                                         │  │
-│  │      │                                            │  │
-│  │      ▼                                            │  │
-│  │  Embedding Model                                  │  │
-│  │      │                                            │  │
-│  │      └─────────────────────┐                      │  │
-│  │                            ▼                      │  │
-│  │  /search/              Vector Store              │  │
-│  │      │                      │                     │  │
-│  │      ▼                      ▼                     │  │
-│  │  Query Embedding       Qdrant Client             │  │
-│  │                             │                     │  │
-│  └─────────────────────────────┼─────────────────────┘  │
-│                                │                        │
-│                                ▼                        │
-│                       ┌────────────────┐               │
-│                       │     Qdrant     │               │
-│                       │                │               │
-│                       │ vectors        │               │
-│                       │ metadata       │               │
-│                       └───────┬────────┘               │
-│                               │                        │
-│                        qdrant_data                     │
-│                           volume                        │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                     FastAPI App                      │  │
+│  │                                                       │  │
+│  │   /ingest/                    /search/                │  │
+│  │      │                           │                    │  │
+│  │      ▼                           ▼                    │  │
+│  │ IngestionService           SearchService              │  │
+│  │      │                           │                    │  │
+│  │      ├── PDF Extraction          │                    │  │
+│  │      ├── Chunking                │                    │  │
+│  │      ├── Document Embedding      └── Query Embedding │  │
+│  │      │                           │                    │  │
+│  │      └───────────────┬───────────┘                    │  │
+│  │                      │                                │  │
+│  │                      ▼                                │  │
+│  │                 Qdrant Client                          │  │
+│  └──────────────────────┼────────────────────────────────┘  │
+│                         │                                   │
+│                         ▼                                   │
+│                  ┌──────────────┐                           │
+│                  │    Qdrant    │                           │
+│                  │              │                           │
+│                  │   Vectors    │                           │
+│                  │   Payload    │                           │
+│                  └──────┬───────┘                           │
+│                         │                                   │
+│                   qdrant_data                               │
+│                      volume                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The main runtime data flow is:
+
+```text
+PDF
+ ↓
+PyMuPDF
+ ↓
+Chunks
+ ↓
+FastEmbed / BAAI/bge-small-en-v1.5
+ ↓
+384-dimensional embeddings
+ ↓
+Qdrant
+```
+
+and:
+
+```text
+Query
+ ↓
+FastEmbed / BAAI/bge-small-en-v1.5
+ ↓
+384-dimensional query embedding
+ ↓
+Qdrant similarity search
+ ↓
+Top-K chunks
 ```
 
 ---
 
-# 19. Development Milestones
-
-The implementation is considered complete when the following milestones have been verified:
+# 24. Current Development Milestones
 
 ```text
 [✓] Dockerized FastAPI application starts
 [✓] Qdrant starts with the application
 [✓] Application waits for Qdrant readiness
 [✓] Qdrant collection is created automatically
+
 [✓] PDF text extraction works
 [✓] PDF extraction edge cases are tested
+
 [✓] Text chunking works
 [✓] Chunking edge cases are tested
-[✓] Embedding generation works
+
+[✓] FastEmbed embedding generation works
+[✓] Embedding dimension is validated
+
 [✓] Chunk embeddings are stored in Qdrant
+[✓] Deterministic point IDs work
+[✓] Content-based document IDs work
+
 [✓] Document ingestion pipeline works
+[✓] Semantic-search pipeline works
+
 [✓] /ingest/ works
 [✓] /search/ works
+
+[✓] Dependency injection is implemented
+[✓] API tests use dependency overrides
+[✓] Test Qdrant collections are isolated
+
 [✓] Supplied suite.py passes
-[ ] Invalid input is handled cleanly
-[ ] Concurrent uploads are handled safely
-[ ] Documentation is complete
-[ ] Clean start/terminate flow verified
+[✓] Full application test suite passes
+
+[ ] Concurrent uploads are tested
+[ ] Error handling is fully hardened
+[ ] Observability/logging is finalized
+[ ] README documentation is complete
+[ ] Clean evaluator start/terminate flow is verified
+[ ] Final end-to-end evaluator test is completed
 ```
 
-The checklist is intentionally updated as implementation progresses so that the repository history and this document together show how the system evolved from infrastructure to a complete semantic-search service.
+---
+
+# 25. Implementation Philosophy
+
+The implementation intentionally follows a simple progression:
+
+```text
+Infrastructure
+     ↓
+PDF processing
+     ↓
+Chunking
+     ↓
+Embedding
+     ↓
+Vector storage
+     ↓
+Ingestion service
+     ↓
+Search service
+     ↓
+API endpoints
+     ↓
+Dependency injection
+     ↓
+Testing
+     ↓
+Hardening
+```
+
+The objective is not to build the largest possible system.
+
+The objective is to build the **simplest system that satisfies the requirements reliably, is easy to understand, and has clear reasoning behind its design choices**.
