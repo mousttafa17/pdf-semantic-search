@@ -735,7 +735,7 @@ The implementation is considered complete when the following milestones have bee
 [✓] Text chunking works
 [✓] Chunking edge cases are tested
 [✓] Embedding generation works
-[ ] Chunk embeddings are stored in Qdrant
+[✓] Chunk embeddings are stored in Qdrant
 [ ] /ingest/ works
 [ ] /search/ works
 [ ] Invalid input is handled cleanly
