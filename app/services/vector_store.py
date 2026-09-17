@@ -1,11 +1,10 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-from app.config import QDRANT_URL
+from app.config import EMBEDDING_DIMENSION, QDRANT_URL
 
 
 COLLECTION_NAME = "documents"
-VECTOR_SIZE = 384
 
 
 class VectorStore:
@@ -36,7 +35,7 @@ class VectorStore:
         self.client.create_collection(
             collection_name=self.collection_name,
             vectors_config=VectorParams(
-                size=VECTOR_SIZE,
+                size=EMBEDDING_DIMENSION,
                 distance=Distance.COSINE,
             ),
         )

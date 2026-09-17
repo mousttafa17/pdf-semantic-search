@@ -734,7 +734,7 @@ The implementation is considered complete when the following milestones have bee
 [✓] PDF extraction edge cases are tested
 [✓] Text chunking works
 [✓] Chunking edge cases are tested
-[ ] Embedding generation works
+[✓] Embedding generation works
 [ ] Chunk embeddings are stored in Qdrant
 [ ] /ingest/ works
 [ ] /search/ works
