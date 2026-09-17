@@ -1153,7 +1153,7 @@ Top-K chunks
 [✓] Supplied suite.py passes
 [✓] Full application test suite passes
 
-[ ] Concurrent uploads are tested
+[✓] Concurrent uploads are tested
 [ ] Error handling is fully hardened
 [ ] Observability/logging is finalized
 [ ] README documentation is complete
