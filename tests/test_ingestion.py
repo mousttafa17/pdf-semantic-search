@@ -1,6 +1,7 @@
 import fitz
 import pytest
 import uuid
+import logging
 
 from app.services.ingestion import IngestionService, IngestionError
 from app.services.vector_store import VectorStore
@@ -209,3 +210,33 @@ def test_unexpected_ingestion_error_is_wrapped(
             file_bytes=pdf_bytes,
             filename="sample.pdf",
         )
+
+def test_ingestion_logs_metadata_without_document_content(
+    vector_store: VectorStore,
+    caplog,
+):
+    embedding_service = FakeEmbeddingService()
+
+    ingestion_service = IngestionService(
+        embedding_service=embedding_service,
+        vector_store=vector_store,
+    )
+
+    document_text = (
+        "Artificial intelligence enables systems to learn from data."
+    )
+
+    caplog.set_level(logging.INFO, logger="app.services.ingestion")
+
+    pdf_bytes = create_pdf_bytes(document_text)
+
+    ingestion_service.ingest(
+        file_bytes=pdf_bytes,
+        filename="sample.pdf",
+    )
+
+    assert "Ingestion started" in caplog.text
+    assert "Ingestion completed" in caplog.text
+    assert "filename=sample.pdf" in caplog.text
+    assert "chunks=1" in caplog.text
+    assert document_text not in caplog.text

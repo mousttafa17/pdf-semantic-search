@@ -943,20 +943,199 @@ If directory ingestion became a concrete requirement, a separate mounted-data me
 
 ---
 
+# ADR-025: Application Logging and Observability
+
+## Context
+
+The application contains several operations whose execution time and failures are important for debugging and evaluation:
+
+```text
+document ingestion
+
+semantic search
+
+Qdrant operations
+
+embedding generation
+```
+
+The system runs inside Docker, so operational information should be visible through container logs without introducing a separate observability platform.
+
+## Decision
+
+Use the Python standard-library `logging` module for application observability.
+
+Application loggers use the `app` namespace and emit logs at `INFO` level to standard output.
+
+The application logs:
+
+```text
+operation start
+
+operation completion
+
+operation duration
+
+document filename
+
+document ID
+
+chunk count
+
+search result count
+
+validation and infrastructure failures
+```
+
+Unexpected failures use exception logging so that the traceback is available in application logs.
+
+## Rationale
+
+Standard Python logging is sufficient for the scope of the assessment and integrates naturally with Docker's stdout/stderr log collection.
+
+Recording operation duration provides basic performance visibility without requiring a separate metrics system.
+
+Logging metadata such as document IDs, filenames, chunk counts, and result counts makes failures and slow operations easier to diagnose.
+
+Document contents and full search queries are intentionally not logged.
+
+This reduces the risk of placing potentially sensitive application data into operational logs.
+
+## Trade-offs
+
+The current approach provides basic operational visibility but does not provide centralized metrics, distributed tracing, dashboards, or long-term log storage.
+
+A production deployment at larger scale could introduce systems such as:
+
+```text
+OpenTelemetry
+
+Prometheus
+
+centralized log aggregation
+
+distributed tracing
+```
+
+Those systems are intentionally outside the scope of the current assessment.
+
+---
+
+# ADR-026: Error Classification and API Failure Handling
+
+## Context
+
+The application can encounter several fundamentally different categories of failure:
+
+```text
+invalid client input
+
+document-processing failures
+
+embedding/model failures
+
+vector-database failures
+
+unexpected application failures
+```
+
+These failures should not all produce the same HTTP status or expose internal implementation details.
+
+## Decision
+
+Classify errors according to whether they represent invalid client input or an internal server failure.
+
+Client/input errors return HTTP `400`.
+
+These include:
+
+```text
+empty uploads
+
+invalid file types
+
+invalid/corrupt PDFs
+
+textless documents
+
+empty search queries
+```
+
+Internal failures return HTTP `500`.
+
+These include:
+
+```text
+embedding/model failures
+
+Qdrant failures
+
+unexpected application exceptions
+```
+
+API responses use the required error format:
+
+```json
+{
+  "error": "..."
+}
+```
+
+Internal exception details are not exposed directly to API clients.
+
+Known exceptions are preserved between service layers so that the API layer can make the appropriate classification.
+
+## Rationale
+
+Separating client errors from server errors makes the API contract predictable and prevents infrastructure failures from being incorrectly reported as client mistakes.
+
+Keeping the classification at the API boundary also allows the processing services to remain independent of HTTP concerns.
+
+For example:
+
+```text
+PDFProcessingError
+        ↓
+    HTTP 400
+
+EmbeddingError
+        ↓
+    HTTP 500
+
+VectorStoreError
+        ↓
+    HTTP 500
+```
+
+Unexpected exceptions are wrapped by the relevant service with a generic internal error while preserving the original exception as the cause for diagnostic purposes.
+
+## Trade-offs
+
+The current classification intentionally uses broad `400` and `500` categories rather than defining a large hierarchy of HTTP-specific errors.
+
+This keeps the implementation simple and appropriate for the assessment while leaving room for more granular error codes in a production API.
+
+The API currently stops processing a multi-file request when it encounters an ingestion failure. Files processed before the failure may already have been stored, so multi-file ingestion is not treated as an atomic transaction.
+
+A production system could introduce per-file result reporting, transactional coordination, or asynchronous job management depending on the required semantics.
+
+
 # Decision Summary
 
 The resulting architecture deliberately favors:
 
 ```text
-Simple
+ Simple
     +
-Explicit
+ Explicit
     +
-Containerized
+ Containerized
     +
-Testable
+ Testable
     +
-Easy to explain
+Observable
+    +
+ Easy to explain
 ```
 
 over maximum scalability or infrastructure complexity.
@@ -975,11 +1154,11 @@ The major data flow is:
                      ▼                         ▼
              IngestionService             SearchService
                      │                         │
-              ┌──────┼──────┐                 │
-              ▼      ▼      ▼                 ▼
-             PDF   Chunk   Embed         Query Embed
-              │      │      │                 │
-              └──────┴──────┘                 │
+              ┌──────┼──────┐                  │
+              ▼      ▼      ▼                  ▼
+             PDF   Chunk   Embed          Query Embed
+              │      │      │                  │
+              └──────┴──────┘                  │
                      │                         │
                      └──────────┬──────────────┘
                                 ▼

@@ -1,10 +1,16 @@
 import hashlib
+import logging
+
+from time import perf_counter
 from dataclasses import dataclass
 
 from app.services.chunking import TextChunk, chunk_text, ChunkingError
 from app.services.embeddings import EmbeddingService, EmbeddingError
 from app.services.pdf import extract_text_from_pdf, PDFProcessingError
 from app.services.vector_store import VectorStore, VectorStoreError
+
+
+logger = logging.getLogger(__name__)
 
 
 class IngestionError(Exception):
@@ -41,6 +47,13 @@ class IngestionService:
 
     def ingest(self, file_bytes: bytes, filename: str) -> IngestionResult:
         document_id = self._generate_document_id(file_bytes)
+        start_time = perf_counter()
+    
+        logger.info(
+            "Ingestion started filename=%s document_id=%s",
+            filename,
+            document_id,
+        )
     
         try:
             extracted_document = extract_text_from_pdf(
@@ -61,17 +74,48 @@ class IngestionService:
                 embeddings=embeddings,
             )
     
+            duration_ms = (perf_counter() - start_time) * 1000
+    
+            logger.info(
+                "Ingestion completed filename=%s document_id=%s "
+                "chunks=%d duration_ms=%.2f",
+                filename,
+                document_id,
+                len(chunks),
+                duration_ms,
+            )
+    
             return IngestionResult(
                 document_id=document_id,
                 filename=filename,
                 chunk_count=len(chunks),
             )
     
-        except (PDFProcessingError, ChunkingError, EmbeddingError, VectorStoreError):
+        except (PDFProcessingError, ChunkingError) as exc:
+            logger.warning(
+                "Ingestion rejected filename=%s reason=%s",
+                filename,
+                str(exc),
+            )
             raise
         
-        except Exception as exc:
-            raise IngestionError("Failed to ingest document.") from exc
+        except (EmbeddingError, VectorStoreError):
+            logger.exception(
+                "Ingestion infrastructure failure "
+                "filename=%s document_id=%s",
+                filename,
+                document_id,
+            )
+            raise
+        
+        except Exception:
+            logger.exception(
+                "Unexpected ingestion failure "
+                "filename=%s document_id=%s",
+                filename,
+                document_id,
+            )
+            raise IngestionError("Failed to ingest document.") from None
 
     @staticmethod
     def _generate_document_id(file_bytes: bytes) -> str:

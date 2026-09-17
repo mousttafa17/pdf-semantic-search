@@ -1,5 +1,6 @@
 import hashlib
 import uuid
+import logging
 from collections.abc import Sequence
 
 from qdrant_client import QdrantClient
@@ -10,6 +11,8 @@ from app.services.chunking import TextChunk
 
 
 COLLECTION_NAME = "documents"
+
+logger = logging.getLogger(__name__)
 
 
 class VectorStoreError(Exception):
@@ -59,8 +62,9 @@ class VectorStore:
                 "Failed to create Qdrant collection."
             ) from exc
 
-        print(
-            f"Created Qdrant collection: {self.collection_name}"
+        logger.info(
+            "Created Qdrant collection collection=%s",
+            self.collection_name,
         )
 
     def ensure_collection(self) -> None:

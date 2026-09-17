@@ -1057,7 +1057,7 @@ Once hardening is complete, the architecture is:
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
 │  ┌───────────────────────────────────────────────────────┐  │
-│  │                     FastAPI App                      │  │
+│  │                     FastAPI App                       │  │
 │  │                                                       │  │
 │  │   /ingest/                    /search/                │  │
 │  │      │                           │                    │  │
@@ -1066,12 +1066,12 @@ Once hardening is complete, the architecture is:
 │  │      │                           │                    │  │
 │  │      ├── PDF Extraction          │                    │  │
 │  │      ├── Chunking                │                    │  │
-│  │      ├── Document Embedding      └── Query Embedding │  │
+│  │      ├── Document Embedding      └── Query Embedding  │  │
 │  │      │                           │                    │  │
 │  │      └───────────────┬───────────┘                    │  │
 │  │                      │                                │  │
 │  │                      ▼                                │  │
-│  │                 Qdrant Client                          │  │
+│  │                 Qdrant Client                         │  │
 │  └──────────────────────┼────────────────────────────────┘  │
 │                         │                                   │
 │                         ▼                                   │
@@ -1155,7 +1155,7 @@ Top-K chunks
 
 [✓] Concurrent uploads are tested
 [✓] Error handling is fully hardened
-[ ] Observability/logging is finalized
+[✓] Observability/logging is finalized
 [ ] README documentation is complete
 [ ] Clean evaluator start/terminate flow is verified
 [ ] Final end-to-end evaluator test is completed

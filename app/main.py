@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.api.ingest import router as ingest_router
 from app.api.search import router as search_router
 from app.dependencies import get_vector_store
-
+from app.logging_config import configure_logging
 
 vector_store = get_vector_store()
 qdrant_client = vector_store.client
@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
     Shutdown:
         - nothing currently requires explicit cleanup
     """
+    configure_logging()
     wait_for_qdrant()
     vector_store.ensure_collection()
 

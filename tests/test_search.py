@@ -1,5 +1,6 @@
 import pytest
 import uuid
+import logging
 
 from app.services.search import SearchError, SearchService
 from app.services.vector_store import VectorStore
@@ -133,3 +134,41 @@ def test_unexpected_search_error_is_wrapped(
         match="Search processing failed",
     ):
         search_service.search("How does semantic search work?")
+
+def test_search_logs_metadata_without_query_content(
+    vector_store: VectorStore,
+    caplog,
+):
+    embedding_service = FakeEmbeddingService()
+
+    search_service = SearchService(
+        embedding_service=embedding_service,
+        vector_store=vector_store,
+    )
+
+    caplog.set_level(logging.INFO, logger="app.services.search")
+
+    query = "THIS IS A SECRET SEARCH QUERY"
+
+    search_service.search(query)
+
+    assert "Search started" in caplog.text
+    assert "Search completed" in caplog.text
+    assert "query_length=" in caplog.text
+    assert query not in caplog.text
+
+def test_search_logs_unexpected_failure(
+    vector_store: VectorStore,
+    caplog,
+):
+    search_service = SearchService(
+        embedding_service=UnexpectedEmbeddingService(),
+        vector_store=vector_store,
+    )
+
+    caplog.set_level(logging.ERROR, logger="app.services.search")
+
+    with pytest.raises(SearchError):
+        search_service.search("safe test query")
+
+    assert "Unexpected search failure" in caplog.text
