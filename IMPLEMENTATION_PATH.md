@@ -1156,7 +1156,8 @@ Top-K chunks
 [✓] Concurrent uploads are tested
 [✓] Error handling is fully hardened
 [✓] Observability/logging is finalized
-[ ] README documentation is complete
+[✓] Logging regression tests are implemented
+[✓] README documentation is complete
 [ ] Clean evaluator start/terminate flow is verified
 [ ] Final end-to-end evaluator test is completed
 ```
