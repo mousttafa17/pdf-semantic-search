@@ -282,6 +282,34 @@ The evaluator-facing suite verifies the core start → ingest → search workflo
 
 The supplied `suite.py` is not copied into the Docker image by the Dockerfile. It is mounted read-only by Docker Compose so the exact evaluator-provided file in the repository is used.
 
+### Retrieval evaluation
+
+The project also includes a small manually labeled query/relevance dataset for evaluating retrieval quality.
+
+The evaluation dataset is stored in:
+
+```text
+evaluation/dataset.json
+```
+
+and can be evaluated with:
+
+```bash
+docker compose exec app python evaluation/evaluate.py
+```
+
+The evaluator:
+
+1. Generates temporary PDFs from the benchmark corpus.
+2. Ingests them through the real `/ingest/` endpoint.
+3. Runs the labeled queries through the real `/search/` endpoint.
+4. Compares retrieved documents against the manually defined relevant documents.
+5. Reports Hit@k, Precision@k, and Recall@k for `k = 1, 3, 5`.
+
+The relevance labels are defined independently of similarity scores; similarity is used for ranking, while the dataset provides the ground-truth relevance judgments.
+
+The evaluation script prints both per-query retrieval results and aggregate metrics. It does not modify the production API or introduce an evaluation-only endpoint.
+
 ## Embedding and retrieval design
 
 Documents are divided into 1000-character chunks with 200-character overlap.
@@ -456,6 +484,10 @@ Directory-path ingestion is not supported through the HTTP API. Multipart upload
 │
 ├── tests/
 │
+├── evaluation/
+│   ├── dataset.json
+│   └── evaluate.py
+│
 ├── docker-compose.yml
 ├── docker-compose.dev.yml
 ├── Dockerfile
@@ -465,6 +497,7 @@ Directory-path ingestion is not supported through the HTTP API. Multipart upload
 ├── IMPLEMENTATION_PATH.md
 └── suite.py
 ```
+
 
 ## Further design details
 

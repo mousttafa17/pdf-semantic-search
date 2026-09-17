@@ -1,0 +1,137 @@
+{
+  "documents": [
+    {
+      "name": "machine_learning.pdf",
+      "content": "Gradient descent is an optimization method used to train machine learning models. It repeatedly adjusts model parameters in the direction that reduces the loss function. The learning rate controls the size of each update. Smaller learning rates make gradual progress, while overly large rates can make training unstable."
+    },
+    {
+      "name": "neural_networks.pdf",
+      "content": "Neural networks learn by adjusting weights and biases based on the error produced by their predictions. During backpropagation, gradients indicate how each parameter contributed to the error, and an optimizer updates those parameters. Layers transform inputs through weighted computations followed by activation functions."
+    },
+    {
+      "name": "vector_databases.pdf",
+      "content": "Vector databases store numerical embeddings and support similarity search over those vectors. Text is converted into an embedding and stored with metadata such as its document name. A query is also embedded, and the database compares vectors, often using cosine similarity, to rank semantically similar content."
+    },
+    {
+      "name": "semantic_search.pdf",
+      "content": "Semantic search retrieves information according to the meaning of a query rather than requiring exact keyword matches. A natural-language query is transformed into an embedding and compared with embeddings representing searchable text. The highest-scoring passages are then returned as ranked results."
+    },
+    {
+      "name": "rag_systems.pdf",
+      "content": "Retrieval-augmented generation combines information retrieval with language generation. A user's question is embedded and used to retrieve relevant passages from a document collection. Those passages are then provided to a language model as context so that the generated response can be grounded in retrieved information."
+    },
+    {
+      "name": "docker_deployment.pdf",
+      "content": "Docker packages an application and its dependencies into containers. Docker Compose can run multiple services together, such as a FastAPI application and a Qdrant vector database. Services can communicate over a Compose network, while Docker volumes can persist database data independently of container lifecycles."
+    },
+    {
+      "name": "distributed_systems.pdf",
+      "content": "Distributed systems coordinate work across multiple processes or services. Reliable systems must consider concurrency, retries, idempotency, partial failures, and shared state. An operation is idempotent when repeating the same request does not create additional unintended effects. Clear service boundaries can reduce coupling and make failures easier to isolate."
+    },
+    {
+      "name": "python_concurrency.pdf",
+      "content": "Python applications can handle concurrent work using threads, asynchronous I/O, or multiple processes. Threads are useful when work spends significant time waiting on I/O. CPU-bound work can benefit from multiple processes so computation can run across CPU cores without depending on a single interpreter execution path."
+    },
+    {
+      "name": "pdf_processing.pdf",
+      "content": "PDF processing converts pages from a document into textual data that downstream systems can search or analyze. After extraction, text can be normalized and divided into smaller chunks. Chunking creates manageable searchable units that can be embedded independently and later retrieved as relevant passages."
+    },
+    {
+      "name": "api_design.pdf",
+      "content": "A REST API exposes application capabilities through predictable HTTP endpoints and request and response schemas. Good API design validates inputs, returns appropriate status codes, and defines stable response structures. Idempotent operations are useful when clients may retry requests because of timeouts or transient failures."
+    },
+    {
+      "name": "caching.pdf",
+      "content": "Caching stores previously computed or retrieved data so that repeated requests can be served without performing the same expensive work again. A cache can reduce latency and backend load, but applications must consider expiration, invalidation, stale data, and which system remains the source of truth."
+    },
+    {
+      "name": "observability.pdf",
+      "content": "Observability helps engineers understand system behavior by collecting operational signals such as logs, metrics, and traces. Useful logs provide enough context to diagnose failures without exposing unnecessary sensitive data. Metrics can reveal latency, error rates, throughput, and resource usage over time."
+    }
+  ],
+  "queries": [
+    {
+      "query": "How does gradient descent improve a machine learning model?",
+      "relevant_documents": [
+        "machine_learning.pdf"
+      ]
+    },
+    {
+      "query": "How are model parameters changed according to prediction errors?",
+      "relevant_documents": [
+        "machine_learning.pdf",
+        "neural_networks.pdf"
+      ]
+    },
+    {
+      "query": "How are embeddings compared to find semantically similar text?",
+      "relevant_documents": [
+        "vector_databases.pdf",
+        "semantic_search.pdf"
+      ]
+    },
+    {
+      "query": "How can a natural-language question be used to retrieve relevant document passages?",
+      "relevant_documents": [
+        "semantic_search.pdf",
+        "vector_databases.pdf",
+        "rag_systems.pdf"
+      ]
+    },
+    {
+      "query": "What happens when a question is answered using retrieved document context?",
+      "relevant_documents": [
+        "rag_systems.pdf",
+        "semantic_search.pdf"
+      ]
+    },
+    {
+      "query": "How can FastAPI and Qdrant operate as independently deployed services?",
+      "relevant_documents": [
+        "docker_deployment.pdf"
+      ]
+    },
+    {
+      "query": "How can retries avoid causing duplicate effects in a service?",
+      "relevant_documents": [
+        "distributed_systems.pdf",
+        "api_design.pdf"
+      ]
+    },
+    {
+      "query": "What execution approach is appropriate for CPU-intensive Python work?",
+      "relevant_documents": [
+        "python_concurrency.pdf"
+      ]
+    },
+    {
+      "query": "How is PDF text turned into smaller searchable pieces?",
+      "relevant_documents": [
+        "pdf_processing.pdf",
+        "rag_systems.pdf"
+      ]
+    },
+    {
+      "query": "How can repeated requests avoid doing the same expensive work?",
+      "relevant_documents": [
+        "caching.pdf",
+        "distributed_systems.pdf",
+        "api_design.pdf"
+      ]
+    },
+    {
+      "query": "How can engineers diagnose failures and observe application behavior?",
+      "relevant_documents": [
+        "observability.pdf",
+        "distributed_systems.pdf"
+      ]
+    },
+    {
+      "query": "How does semantic retrieval differ from exact keyword matching?",
+      "relevant_documents": [
+        "semantic_search.pdf",
+        "vector_databases.pdf"
+      ]
+    }
+  ]
+}

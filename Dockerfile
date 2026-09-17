@@ -17,5 +17,6 @@ RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='${
 
 COPY app ./app
 COPY tests ./tests
+COPY evaluation ./evaluation
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
