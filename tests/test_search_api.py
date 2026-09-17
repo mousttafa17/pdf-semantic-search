@@ -3,13 +3,20 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_search_service
 from app.main import app
-from app.services.search import SearchError, SearchResult
+
+from app.services.embeddings import EmbeddingError
+from app.services.search import (
+    SearchError,
+    SearchResult,
+    SearchValidationError,
+)
+from app.services.vector_store import VectorStoreError
 
 
 class FakeSearchService:
     def search(self, query: str) -> list[SearchResult]:
         if not query.strip():
-            raise SearchError("Query cannot be empty.")
+            raise SearchValidationError("Query cannot be empty.")
 
         return [
             SearchResult(
@@ -64,4 +71,65 @@ def test_search_endpoint_rejects_empty_query(client):
 
     assert response.json() == {
         "error": "Query cannot be empty."
+    }
+
+class EmbeddingFailureSearchService:
+    def search(self, query: str) -> list[SearchResult]:
+        raise EmbeddingError("Test embedding failure.")
+
+
+class VectorStoreFailureSearchService:
+    def search(self, query: str) -> list[SearchResult]:
+        raise VectorStoreError("Test vector store failure.")
+
+
+class UnexpectedFailureSearchService:
+    def search(self, query: str) -> list[SearchResult]:
+        raise RuntimeError("Test unexpected failure.")
+
+def test_search_endpoint_returns_500_on_embedding_failure(client):
+    app.dependency_overrides[get_search_service] = (
+        lambda: EmbeddingFailureSearchService()
+    )
+
+    response = client.post(
+        "/search/",
+        json={"query": "How does semantic search work?"},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "Internal server error."
+    }
+
+
+def test_search_endpoint_returns_500_on_vector_store_failure(client):
+    app.dependency_overrides[get_search_service] = (
+        lambda: VectorStoreFailureSearchService()
+    )
+
+    response = client.post(
+        "/search/",
+        json={"query": "How does semantic search work?"},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "Internal server error."
+    }
+
+
+def test_search_endpoint_returns_500_on_unexpected_error(client):
+    app.dependency_overrides[get_search_service] = (
+        lambda: UnexpectedFailureSearchService()
+    )
+
+    response = client.post(
+        "/search/",
+        json={"query": "How does semantic search work?"},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "Internal server error."
     }

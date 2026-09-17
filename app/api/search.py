@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from app.dependencies import get_search_service
 from app.models import SearchRequest, SearchResponse
 from app.services.embeddings import EmbeddingError
-from app.services.search import SearchError, SearchService
+from app.services.search import SearchError, SearchService, SearchValidationError
 from app.services.vector_store import VectorStoreError
 
 
@@ -40,20 +40,20 @@ def search_documents(
             ]
         )
 
-    except SearchError as exc:
+    except SearchValidationError as exc:
         return JSONResponse(
             status_code=400,
             content={"error": str(exc)},
         )
 
-    except EmbeddingError as exc:
+    except (EmbeddingError, VectorStoreError, SearchError):
         return JSONResponse(
             status_code=500,
-            content={"error": str(exc)},
+            content={"error": "Internal server error."},
         )
 
-    except VectorStoreError:
+    except Exception:
         return JSONResponse(
             status_code=500,
-            content={"error": "Search processing failed."},
+            content={"error": "Internal server error."},
         )

@@ -1154,7 +1154,7 @@ Top-K chunks
 [✓] Full application test suite passes
 
 [✓] Concurrent uploads are tested
-[ ] Error handling is fully hardened
+[✓] Error handling is fully hardened
 [ ] Observability/logging is finalized
 [ ] README documentation is complete
 [ ] Clean evaluator start/terminate flow is verified

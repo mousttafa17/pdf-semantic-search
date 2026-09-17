@@ -3,6 +3,7 @@ import uuid
 
 from app.services.search import SearchError, SearchService
 from app.services.vector_store import VectorStore
+from app.services.chunking import TextChunk
 
 
 def unit_vector(index: int) -> list[float]:
@@ -32,14 +33,24 @@ def vector_store() -> VectorStore:
     store.upsert_chunks(
         document_id="document-a",
         document_name="relevant.pdf",
-        chunks=["This content is relevant to the query."],
+        chunks=[
+            TextChunk(
+                content="This content is relevant to the query.",
+                chunk_index=0,
+            )
+        ],
         embeddings=[unit_vector(0)],
     )
 
     store.upsert_chunks(
         document_id="document-b",
         document_name="unrelated.pdf",
-        chunks=["This content is unrelated."],
+        chunks=[
+            TextChunk(
+                content="This content is unrelated.",
+                chunk_index=0,
+                )
+        ],
         embeddings=[unit_vector(1)],
     )
 
@@ -104,3 +115,21 @@ def test_whitespace_query_is_rejected(
 ):
     with pytest.raises(SearchError, match="empty"):
         search_service.search("   ")
+
+class UnexpectedEmbeddingService:
+    def embed_query(self, query: str):
+        raise RuntimeError("Unexpected embedding failure.")
+
+def test_unexpected_search_error_is_wrapped(
+    vector_store: VectorStore,
+):
+    search_service = SearchService(
+        embedding_service=UnexpectedEmbeddingService(),
+        vector_store=vector_store,
+    )
+
+    with pytest.raises(
+        SearchError,
+        match="Search processing failed",
+    ):
+        search_service.search("How does semantic search work?")

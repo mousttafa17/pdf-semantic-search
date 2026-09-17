@@ -4,6 +4,7 @@ import pytest
 from qdrant_client.models import PointStruct
 
 from app.config import EMBEDDING_DIMENSION
+from app.services.chunking import TextChunk
 from app.services.vector_store import (
     VectorStore,
     VectorStoreError,
@@ -41,9 +42,15 @@ def test_upsert_chunks_stores_points(vector_store: VectorStore):
     document_id = str(uuid.uuid4())
 
     chunks = [
-        "Artificial intelligence enables systems to learn from data.",
-        "Semantic search uses embeddings to compare meaning.",
-    ]
+    TextChunk(
+        content="Artificial intelligence enables systems to learn from data.",
+        chunk_index=0,
+    ),
+    TextChunk(
+        content="Semantic search uses embeddings to compare meaning.",
+        chunk_index=1,
+    ),
+]
 
     embeddings = [
         fake_embedding(0.1),
@@ -73,14 +80,14 @@ def test_upsert_chunks_stores_points(vector_store: VectorStore):
     assert any(
         payload["document"] == "sample.pdf"
         and payload["chunk_index"] == 0
-        and payload["content"] == chunks[0]
+        and payload["content"] == chunks[0].content
         for payload in payloads
     )
 
     assert any(
         payload["document"] == "sample.pdf"
         and payload["chunk_index"] == 1
-        and payload["content"] == chunks[1]
+        and payload["content"] == chunks[1].content
         for payload in payloads
     )
 
@@ -91,11 +98,17 @@ def test_reingestion_updates_existing_points(
     document_id = str(uuid.uuid4())
 
     original_chunks = [
-        "Original content.",
-    ]
+        TextChunk(
+            content="Original content.",
+            chunk_index=0,
+        ),
+]
 
     updated_chunks = [
-        "Updated content.",
+        TextChunk(
+            content="Updated content.",
+            chunk_index=0,
+        ),
     ]
 
     embedding = fake_embedding(0.5)

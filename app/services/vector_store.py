@@ -6,6 +6,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, VectorParams, Distance
 
 from app.config import EMBEDDING_DIMENSION, QDRANT_URL
+from app.services.chunking import TextChunk
 
 
 COLLECTION_NAME = "documents"
@@ -70,7 +71,7 @@ class VectorStore:
         self,
         document_id: str,
         document_name: str,
-        chunks: Sequence[str],
+        chunks: Sequence[TextChunk],
         embeddings: Sequence[Sequence[float]],
     ) -> int:
         """
@@ -109,8 +110,8 @@ class VectorStore:
                     payload={
                         "document_id": document_id,
                         "document": document_name,
-                        "chunk_index": chunk_index,
-                        "content": chunk,
+                        "chunk_index": chunk.chunk_index,
+                        "content": chunk.content,
                     },
                 )
             )

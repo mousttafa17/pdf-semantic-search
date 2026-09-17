@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.dependencies import get_ingestion_service
+
+from app.services.chunking import ChunkingError
+from app.services.embeddings import EmbeddingError
 from app.services.ingestion import IngestionError, IngestionService
+from app.services.pdf import PDFProcessingError
+from app.services.vector_store import VectorStoreError
 
 
 router = APIRouter()
@@ -63,18 +68,22 @@ def ingest_files(
 
             successful_files.append(filename)
 
-        except IngestionError as exc:
+        except (PDFProcessingError, ChunkingError) as exc:
             return JSONResponse(
                 status_code=400,
                 content={"error": str(exc)},
             )
 
-        except Exception as exc:
+        except (EmbeddingError, VectorStoreError, IngestionError):
             return JSONResponse(
                 status_code=500,
-                content={
-                    "error": "Failed to process uploaded file."
-                },
+                content={"error": "Internal server error."},
+            )
+
+        except Exception:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Internal server error."},
             )
 
     return JSONResponse(

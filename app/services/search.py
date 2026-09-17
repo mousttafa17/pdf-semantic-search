@@ -1,12 +1,16 @@
 from dataclasses import dataclass
 
 from app.config import SEARCH_TOP_K
-from app.services.embeddings import EmbeddingService
-from app.services.vector_store import VectorStore
+from app.services.embeddings import EmbeddingService, EmbeddingError
+from app.services.vector_store import VectorStore, VectorStoreError
 
 
 class SearchError(Exception):
-    """Raised when semantic search fails."""
+    """Base class for semantic-search errors."""
+
+
+class SearchValidationError(SearchError):
+    """Raised when the search request is invalid."""
 
 
 @dataclass(frozen=True)
@@ -35,47 +39,34 @@ class SearchService:
         self.top_k = top_k
 
     def search(self, query: str) -> list[SearchResult]:
-        """
-        Search for document chunks semantically related to the query.
-        """
         if not query or not query.strip():
-            raise SearchError("Query cannot be empty.")
+            raise SearchValidationError("Search query cannot be empty.")
 
         try:
-            query_embedding = self.embedding_service.embed_query(
-                query.strip()
-            )
+            query_embedding = self.embedding_service.embed_query(query)
 
             points = self.vector_store.search(
                 query_embedding=query_embedding,
                 limit=self.top_k,
             )
 
-        except Exception as exc:
-            if isinstance(exc, SearchError):
-                raise
+            results = []
 
-            raise SearchError(
-                "Search processing failed."
-            ) from exc
+            for point in points:
+                payload = point.payload or {}
 
-        results: list[SearchResult] = []
-
-        for point in points:
-            payload = point.payload or {}
-
-            document = payload.get("document")
-            content = payload.get("content")
-
-            if not document or not content:
-                continue
-
-            results.append(
-                SearchResult(
-                    document=document,
-                    score=float(point.score),
-                    content=content,
+                results.append(
+                    SearchResult(
+                        document=payload.get("document", ""),
+                        score=float(point.score),
+                        content=payload.get("content", ""),
+                    )
                 )
-            )
 
-        return results
+            return results
+
+        except (EmbeddingError, VectorStoreError):
+            raise
+
+        except Exception as exc:
+            raise SearchError("Search processing failed.") from exc

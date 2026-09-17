@@ -6,7 +6,11 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_ingestion_service
 from app.main import app
-from app.services.ingestion import IngestionResult
+
+from app.services.ingestion import IngestionResult, IngestionError
+from app.services.embeddings import EmbeddingError
+from app.services.vector_store import VectorStoreError
+from app.dependencies import get_ingestion_service
 
 
 class FakeIngestionService:
@@ -107,4 +111,83 @@ def test_ingest_rejects_empty_file(client):
 
     assert response.json() == {
         "error": "Uploaded file 'empty.pdf' is empty."
+    }
+
+class EmbeddingFailureIngestionService:
+    def ingest(self, file_bytes: bytes, filename: str):
+        raise EmbeddingError("Test embedding failure.")
+
+
+class VectorStoreFailureIngestionService:
+    def ingest(self, file_bytes: bytes, filename: str):
+        raise VectorStoreError("Test vector store failure.")
+
+
+class UnexpectedFailureIngestionService:
+    def ingest(self, file_bytes: bytes, filename: str):
+        raise RuntimeError("Test unexpected failure.")
+
+def test_ingest_endpoint_returns_500_on_embedding_failure(client):
+    app.dependency_overrides[get_ingestion_service] = (
+        lambda: EmbeddingFailureIngestionService()
+    )
+
+    response = client.post(
+        "/ingest/",
+        files={
+            "input": (
+                "sample.pdf",
+                b"%PDF-test-content%",
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "Internal server error."
+    }
+
+
+def test_ingest_endpoint_returns_500_on_vector_store_failure(client):
+    app.dependency_overrides[get_ingestion_service] = (
+        lambda: VectorStoreFailureIngestionService()
+    )
+
+    response = client.post(
+        "/ingest/",
+        files={
+            "input": (
+                "sample.pdf",
+                b"%PDF-test-content%",
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "Internal server error."
+    }
+
+
+def test_ingest_endpoint_returns_500_on_unexpected_error(client):
+    app.dependency_overrides[get_ingestion_service] = (
+        lambda: UnexpectedFailureIngestionService()
+    )
+
+    response = client.post(
+        "/ingest/",
+        files={
+            "input": (
+                "sample.pdf",
+                b"%PDF-test-content%",
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "Internal server error."
     }

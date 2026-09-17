@@ -1,10 +1,10 @@
 import hashlib
 from dataclasses import dataclass
 
-from app.services.chunking import TextChunk, chunk_text
-from app.services.embeddings import EmbeddingService
-from app.services.pdf import extract_text_from_pdf
-from app.services.vector_store import VectorStore
+from app.services.chunking import TextChunk, chunk_text, ChunkingError
+from app.services.embeddings import EmbeddingService, EmbeddingError
+from app.services.pdf import extract_text_from_pdf, PDFProcessingError
+from app.services.vector_store import VectorStore, VectorStoreError
 
 
 class IngestionError(Exception):
@@ -39,51 +39,39 @@ class IngestionService:
         self.embedding_service = embedding_service
         self.vector_store = vector_store
 
-    def ingest(
-        self,
-        file_bytes: bytes,
-        filename: str,
-    ) -> IngestionResult:
-        """
-        Ingest one PDF document into the vector store.
-
-        Raises:
-            IngestionError: If any stage of ingestion fails.
-        """
+    def ingest(self, file_bytes: bytes, filename: str) -> IngestionResult:
+        document_id = self._generate_document_id(file_bytes)
+    
         try:
-            document_id = self._generate_document_id(file_bytes)
-
-            document = extract_text_from_pdf(
+            extracted_document = extract_text_from_pdf(
                 file_bytes=file_bytes,
                 filename=filename,
             )
-
-            chunks: list[TextChunk] = chunk_text(document.text)
-
+    
+            chunks = chunk_text(extracted_document.text)
+    
             embeddings = self.embedding_service.embed_documents(
                 [chunk.content for chunk in chunks]
             )
-
-            stored_count = self.vector_store.upsert_chunks(
+    
+            self.vector_store.upsert_chunks(
                 document_id=document_id,
                 document_name=filename,
-                chunks=[chunk.content for chunk in chunks],
+                chunks=chunks,
                 embeddings=embeddings,
             )
-
+    
+            return IngestionResult(
+                document_id=document_id,
+                filename=filename,
+                chunk_count=len(chunks),
+            )
+    
+        except (PDFProcessingError, ChunkingError, EmbeddingError, VectorStoreError):
+            raise
+        
         except Exception as exc:
-            if isinstance(exc, IngestionError):
-                raise
-
-            raise IngestionError(
-                f"Failed to ingest document '{filename}'."
-            ) from exc
-
-        return IngestionResult(
-            document_id=document_id,
-            filename=filename,
-            chunk_count=stored_count,
-        )
+            raise IngestionError("Failed to ingest document.") from exc
 
     @staticmethod
     def _generate_document_id(file_bytes: bytes) -> str:

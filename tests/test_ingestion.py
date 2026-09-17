@@ -2,8 +2,9 @@ import fitz
 import pytest
 import uuid
 
-from app.services.ingestion import IngestionError, IngestionService
+from app.services.ingestion import IngestionService, IngestionError
 from app.services.vector_store import VectorStore
+from app.services.pdf import PDFProcessingError
 
 
 class FakeEmbeddingService:
@@ -143,7 +144,7 @@ def test_different_documents_get_different_ids(
     assert first_result.document_id != second_result.document_id
 
 
-def test_invalid_pdf_is_wrapped_as_ingestion_error(
+def test_invalid_pdf_raises_pdf_processing_error(
     vector_store: VectorStore,
 ):
     embedding_service = FakeEmbeddingService()
@@ -154,9 +155,9 @@ def test_invalid_pdf_is_wrapped_as_ingestion_error(
     )
 
     with pytest.raises(
-        IngestionError,
-        match="Failed to ingest document",
-    ):
+        PDFProcessingError,
+        match="The uploaded file is not a valid PDF.",
+    ):  
         ingestion_service.ingest(
             file_bytes=b"\x00\x01\x02\xff\xfe\x00\xab\xcd",
             filename="bad.pdf",
@@ -183,3 +184,28 @@ def test_ingest_assessment_text_fixture(
     assert result.filename == "sample.pdf"
     assert result.chunk_count == 1
     assert len(result.document_id) == 64
+
+class UnexpectedEmbeddingService:
+    def embed_documents(self, texts):
+        raise RuntimeError("Unexpected embedding failure.")
+
+def test_unexpected_ingestion_error_is_wrapped(
+    vector_store: VectorStore,
+):
+    ingestion_service = IngestionService(
+        embedding_service=UnexpectedEmbeddingService(),
+        vector_store=vector_store,
+    )
+
+    pdf_bytes = create_pdf_bytes(
+        "Artificial intelligence enables systems to learn from data."
+    )
+
+    with pytest.raises(
+        IngestionError,
+        match="Failed to ingest document",
+    ):
+        ingestion_service.ingest(
+            file_bytes=pdf_bytes,
+            filename="sample.pdf",
+        )
