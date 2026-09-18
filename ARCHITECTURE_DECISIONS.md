@@ -1320,7 +1320,7 @@ This keeps the test suite fast while still exercising important infrastructure b
 
 The resulting suite verifies the main input modes, validation failures, service failures, concurrency behavior, and the supplied evaluator contract.
 
-At the current implementation point, the project test suite contains 62 passing tests, and the supplied `suite.py` contains 2 passing tests.
+At the current implementation point, the project test suite contains 72 passing tests, and the supplied `suite.py` contains 2 passing tests.
 
 ## Trade-offs
 

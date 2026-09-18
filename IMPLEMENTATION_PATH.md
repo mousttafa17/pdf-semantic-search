@@ -1238,10 +1238,10 @@ The project also tests:
 The application test suite contains:
 
 ```text
-62 tests
+72 tests
 ```
 
-All 62 are passing.
+All 72 are passing.
 
 ## Status
 
@@ -1679,7 +1679,7 @@ Document + score + content
 
 [✓] Logging regression tests are implemented
 
-[✓] Application test suite passes: 62/62
+[✓] Application test suite passes: 72/72
 
 [✓] Supplied suite.py passes: 2/2
 
