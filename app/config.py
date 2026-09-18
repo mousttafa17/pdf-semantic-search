@@ -1,5 +1,6 @@
 import os
 
+EMBEDDING_BATCH_SIZE = 32
 
 QDRANT_URL = os.getenv(
     "QDRANT_URL",

@@ -18,6 +18,7 @@ The project is fully containerized. The evaluator only needs Docker with Docker 
 
 ```bash
 git clone <repository-url>
+
 cd pdf-semantic-search
 ```
 
@@ -146,27 +147,63 @@ The `terminate` operation removes the containers, project network, and Qdrant pe
 
 ### `POST /ingest/`
 
-Accepts one or more PDF files using multipart form data.
+The `input` field supports three modes:
 
-Example:
+1. A single PDF file.
+2. Multiple PDF files by repeating the `input` field.
+3. A directory path containing PDF files visible inside the application container.
+
+#### Single PDF
 
 ```bash
 curl -X POST http://localhost:8000/ingest/ \
   -F "input=@sample.pdf"
 ```
 
-A successful response contains the uploaded filenames:
+#### Multiple PDFs
+
+```bash
+curl -X POST http://localhost:8000/ingest/ \
+  -F "input=@sample1.pdf" \
+  -F "input=@sample2.pdf"
+```
+
+#### Directory path
+
+The application exposes the repository's `data/` directory inside the container as `/data`.
+
+For example:
+
+```text
+data/
+└── pdfs/
+    ├── document1.pdf
+    ├── document2.pdf
+    └── document3.pdf
+```
+
+The directory can then be ingested with:
+
+```bash
+curl -X POST http://localhost:8000/ingest/ \
+  -F "input=/data/pdfs"
+```
+
+Only PDF files in the specified directory are processed. Non-PDF files are ignored.
+
+A request must use either uploaded files or a directory path; mixing the two input modes is rejected.
+
+A successful response contains the ingested filenames:
 
 ```json
 {
-  "message": "Successfully ingested 1 PDF documents.",
+  "message": "Successfully ingested 2 PDF documents.",
   "files": [
-    "sample.pdf"
+    "sample1.pdf",
+    "sample2.pdf"
   ]
 }
 ```
-
-Multiple files can be sent in the same request by repeating the `input` field.
 
 ### `POST /search/`
 
@@ -267,6 +304,11 @@ The project test suite covers:
 * Qdrant storage and retrieval
 * Semantic search
 * API validation and response shapes
+* Single and multiple PDF ingestion
+* Directory ingestion
+* Directory filtering for non-PDF files
+* Invalid directory handling
+* Rejection of mixed input modes
 * 400/500 error classification
 * Logging and observability behavior
 
@@ -310,6 +352,8 @@ The relevance labels are defined independently of similarity scores; similarity 
 
 The evaluation script prints both per-query retrieval results and aggregate metrics. It does not modify the production API or introduce an evaluation-only endpoint.
 
+The evaluation benchmark should be run against a clean Qdrant collection so that documents from other runs do not affect the retrieval results.
+
 ## Embedding and retrieval design
 
 Documents are divided into 1000-character chunks with 200-character overlap.
@@ -330,6 +374,12 @@ and search queries are prefixed with:
 
 ```text
 query:
+```
+
+Embeddings are generated in bounded batches to keep memory usage predictable during local inference:
+
+```text
+EMBEDDING_BATCH_SIZE=32
 ```
 
 Qdrant uses cosine similarity.
@@ -365,6 +415,9 @@ invalid file type
 empty upload
 invalid or corrupt PDF
 textless document
+invalid directory path
+directory containing no PDFs
+mixed file and directory input
 empty search query
 ```
 
@@ -440,9 +493,11 @@ over unnecessary infrastructure complexity.
 
 In particular:
 
-* Ingestion is synchronous request/response rather than queue-based.
+* Ingestion remains synchronous request/response rather than queue-based.
+* Blocking ingestion work is kept out of the async event loop while the client still waits for the completed response.
 * Qdrant is used directly rather than introducing a relational database.
 * FastEmbed avoids a heavyweight PyTorch-based embedding stack.
+* Embedding inference uses a bounded batch size to control memory usage.
 * Chunking is intentionally simple and deterministic.
 * No external telemetry or job-processing infrastructure is introduced.
 
@@ -456,7 +511,13 @@ The PDF extraction layer therefore includes a narrow readable-text fallback for 
 
 Normal PDF files are processed through PyMuPDF, while binary or unreadable invalid files are rejected.
 
-Directory-path ingestion is not supported through the HTTP API. Multipart uploads are used so the API remains independent of the evaluator's host filesystem.
+The `/ingest/` endpoint supports the three input forms described by the supplied API contract:
+
+* a single PDF upload,
+* multiple PDF uploads using repeated `input` fields,
+* a directory path containing PDFs visible inside the application container.
+
+Directory ingestion is backed by the `/data` container mount used for the repository's `data/` directory.
 
 ## Project structure
 
@@ -482,6 +543,9 @@ Directory-path ingestion is not supported through the HTTP API. Multipart upload
 │   ├── models.py
 │   └── main.py
 │
+├── data/
+│   └── pdfs/
+│
 ├── tests/
 │
 ├── evaluation/
@@ -498,9 +562,13 @@ Directory-path ingestion is not supported through the HTTP API. Multipart upload
 └── suite.py
 ```
 
-
 ## Further design details
 
 See `ARCHITECTURE_DECISIONS.md` for the detailed rationale, alternatives, trade-offs, and evolution path behind the implementation.
 
 See `IMPLEMENTATION_PATH.md` for the incremental implementation and validation process.
+
+```
+
+One deliberate change is the **Assessment compatibility note**: the old statement that directory ingestion was unsupported is now removed, because it is no longer true. The README also reflects the actual `data/pdfs` directory and the new `EMBEDDING_BATCH_SIZE=32` decision.
+```

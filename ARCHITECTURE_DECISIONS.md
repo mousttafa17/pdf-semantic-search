@@ -14,8 +14,8 @@ The goal is not to maximize architectural complexity. Each decision is based on 
 
 The system requires two HTTP endpoints:
 
-* `POST /ingest/`
-* `POST /search/`
+- `POST /ingest/`
+- `POST /search/`
 
 The API also needs request validation, structured responses, and OpenAPI/Swagger documentation.
 
@@ -25,8 +25,8 @@ Use **FastAPI** as the API framework.
 
 ## Alternatives Considered
 
-* Flask
-* Django REST Framework
+- Flask
+- Django REST Framework
 
 ## Rationale
 
@@ -54,9 +54,9 @@ Use **Qdrant** as the vector database.
 
 ## Alternatives Considered
 
-* PostgreSQL + pgvector
-* Another hosted vector database
-* In-memory vector storage
+- PostgreSQL + pgvector
+- Another hosted vector database
+- In-memory vector storage
 
 ## Rationale
 
@@ -92,9 +92,9 @@ BAAI/bge-small-en-v1.5
 
 ## Alternatives Considered
 
-* Sentence Transformers + PyTorch
-* Larger embedding models
-* Hosted embedding APIs
+- Sentence Transformers + PyTorch
+- Larger embedding models
+- Hosted embedding APIs
 
 ## Rationale
 
@@ -160,8 +160,8 @@ Use **cosine similarity** in Qdrant.
 
 ## Alternatives Considered
 
-* Dot product
-* Euclidean distance
+- Dot product
+- Euclidean distance
 
 ## Rationale
 
@@ -198,10 +198,10 @@ chunk_overlap: 200 characters
 
 ## Alternatives Considered
 
-* Token-based chunking
-* Paragraph-based chunking
-* Sentence-aware chunking
-* Semantic chunking
+- Token-based chunking
+- Paragraph-based chunking
+- Sentence-aware chunking
+- Semantic chunking
 
 ## Rationale
 
@@ -243,9 +243,9 @@ Overlap preserves some context between neighboring chunks and reduces the chance
 
 Overlap increases the number of chunks and therefore:
 
-* increases embedding computation,
-* increases storage requirements,
-* can introduce some duplicated text in retrieval results.
+- increases embedding computation,
+- increases storage requirements,
+- can introduce some duplicated text in retrieval results.
 
 The chosen amount is intentionally modest for the expected document sizes.
 
@@ -320,13 +320,19 @@ Conceptually:
 
 ```text
 document abc123
+
 chunk 0
+
     ↓
+
 UUID A
 
 same document
+
 chunk 0
+
     ↓
+
 UUID A
 ```
 
@@ -346,8 +352,11 @@ The ingestion pipeline contains several independent operations:
 
 ```text
 PDF extraction
+
 chunking
+
 embedding
+
 vector storage
 ```
 
@@ -359,6 +368,7 @@ Current structure:
 
 ```text
 services/
+
 ├── pdf.py
 ├── chunking.py
 ├── embeddings.py
@@ -375,19 +385,27 @@ For example:
 
 ```text
 PDF service
+
     ↓
+
 verified text
 
 Chunking service
+
     ↓
+
 verified chunks
 
 Embedding service
+
     ↓
+
 verified vectors
 
 Vector store
+
     ↓
+
 verified persistence
 ```
 
@@ -463,8 +481,11 @@ PDF ingestion involves several potentially expensive operations:
 
 ```text
 PDF parsing
+
 chunking
+
 embedding generation
+
 vector insertion
 ```
 
@@ -478,10 +499,10 @@ This means a request remains open until its document processing has completed.
 
 ## Alternatives Considered
 
-* Celery
-* Redis-backed jobs
-* RabbitMQ/Kafka
-* Background worker service
+- Celery
+- Redis-backed jobs
+- RabbitMQ/Kafka
+- Background worker service
 
 ## Rationale
 
@@ -489,10 +510,10 @@ The assessment requires a simple API and does not specify very large documents o
 
 Adding a job queue would introduce:
 
-* another infrastructure service,
-* job lifecycle management,
-* retry semantics,
-* additional operational complexity.
+- another infrastructure service,
+- job lifecycle management,
+- retry semantics,
+- additional operational complexity.
 
 None is necessary to demonstrate the required core functionality at the expected scope.
 
@@ -502,13 +523,15 @@ A synchronous endpoint also keeps the response contract simple: a successful `20
 
 Synchronous request/response processing does **not** mean that only one upload can run at a time.
 
-FastAPI can execute synchronous endpoint functions using its worker threads, allowing multiple HTTP requests to be processed concurrently.
+The implementation keeps the ingestion operation synchronous from the client's perspective while allowing the application to handle concurrent requests through the web server's request execution model.
 
 The trade-off here is therefore:
 
 ```text
 synchronous request/response
+
         vs.
+
 asynchronous job-based ingestion
 ```
 
@@ -516,25 +539,35 @@ rather than:
 
 ```text
 synchronous
+
         =
+
 one request at a time
 ```
 
 ## Trade-offs
 
-A synchronous request occupies a worker while the document is being processed.
+A synchronous request occupies execution capacity while the document is being processed.
 
 For larger workloads, the architecture could evolve toward:
 
 ```text
 Upload
+
   ↓
+
 Job queue
+
   ↓
+
 Worker
+
   ↓
+
 Embedding
+
   ↓
+
 Qdrant
 ```
 
@@ -602,11 +635,11 @@ The application and Qdrant are separate containers with a simple dependency rela
 
 Docker Compose provides:
 
-* networking,
-* container lifecycle management,
-* volume management,
-* environment configuration,
-* reproducible local setup.
+- networking,
+- container lifecycle management,
+- volume management,
+- environment configuration,
+- reproducible local setup.
 
 ## Trade-offs
 
@@ -684,15 +717,25 @@ The ingestion endpoint follows:
 
 ```text
 HTTP request
+
     ↓
+
 Input validation
+
     ↓
+
 Ingestion service
+
     ├── PDF extraction
+
     ├── chunking
+
     ├── embedding
+
     └── Qdrant storage
+
     ↓
+
 HTTP response
 ```
 
@@ -700,13 +743,21 @@ The search endpoint follows:
 
 ```text
 HTTP request
+
     ↓
+
 Query validation
+
     ↓
+
 Search service
+
     ├── query embedding
+
     └── Qdrant similarity search
+
     ↓
+
 HTTP response
 ```
 
@@ -744,9 +795,13 @@ For example:
 
 ```text
 same PDF bytes
+
     ↓
+
 same SHA-256
+
     ↓
+
 same document_id
 ```
 
@@ -864,8 +919,11 @@ The API depends on several services:
 
 ```text
 IngestionService
+
 SearchService
+
 EmbeddingService
+
 VectorStore
 ```
 
@@ -879,13 +937,21 @@ The intended relationship is:
 
 ```text
 FastAPI
+
   │
+
   ├── IngestionService
+
   │      ├── EmbeddingService
+
   │      └── VectorStore
+
   │
+
   └── SearchService
+
          ├── EmbeddingService
+
          └── VectorStore
 ```
 
@@ -893,11 +959,11 @@ FastAPI
 
 Centralized construction provides:
 
-* clearer ownership of configuration,
-* easier substitution of fake services during tests,
-* cleaner route modules,
-* better isolation between production and test infrastructure,
-* a straightforward path to future lifecycle management.
+- clearer ownership of configuration,
+- easier substitution of fake services during tests,
+- cleaner route modules,
+- better isolation between production and test infrastructure,
+- a straightforward path to future lifecycle management.
 
 It also prevents tests from unintentionally reusing or modifying production-specific resources.
 
@@ -909,37 +975,47 @@ For a very small application that might be unnecessary, but the project has enou
 
 ---
 
-# ADR-024: No Directory-Path Ingestion
+# ADR-024: Mounted Directory Ingestion
 
 ## Context
 
 The supplied Swagger documentation describes the `input` field as potentially representing:
 
-* a single PDF,
-* multiple PDFs,
-* or a directory path containing PDFs.
+- a single PDF,
+- multiple PDFs,
+- or a directory path containing PDFs.
 
-The service itself runs inside a Docker container.
+The service itself runs inside a Docker container, so an arbitrary client-side host path cannot be assumed to exist inside the container.
 
 ## Decision
 
-Support multipart file uploads for one or multiple PDF files, but do not interpret an arbitrary client-supplied directory path as a host filesystem location.
+Support all three input forms through the API contract:
+
+1. a single uploaded PDF,
+2. multiple uploaded PDFs,
+3. a directory path that is visible inside the container.
+
+Directory ingestion is therefore limited to container-visible paths, such as the explicitly mounted `/data` directory used by the application.
+
+The endpoint does **not** interpret a host filesystem path from the client's machine.
 
 ## Rationale
 
-A host filesystem directory is not naturally available inside a container unless it is explicitly mounted.
+This preserves portability while supporting the directory form described by the supplied API contract.
 
-Adding arbitrary host-path semantics would couple the HTTP API to the evaluator's local filesystem and require additional volume-mount behavior.
+The evaluator can mount a directory into the container and pass that container-visible path to the endpoint.
 
-Multipart uploads provide a portable HTTP interface and directly match the normal client/server boundary.
+For the current project, `/data` is mounted by Docker Compose and can contain batches of PDFs.
 
-The assessment's provided functional test also exercises file upload rather than directory ingestion.
+This also keeps the HTTP boundary clear: client file uploads are handled as uploads, while directory ingestion operates only on filesystem paths that the container can actually access.
 
 ## Trade-offs
 
-Directory-based batch ingestion is not supported through the HTTP endpoint.
+Directory ingestion depends on the relevant directory being mounted into the container.
 
-If directory ingestion became a concrete requirement, a separate mounted-data mechanism or a dedicated batch-ingestion interface could be introduced without changing the underlying extraction, chunking, embedding, or vector-storage services.
+An arbitrary path from the client's host remains unavailable to the container unless explicitly mounted.
+
+The implementation currently treats a directory as a batch input, selects `.pdf` files from it, ignores non-PDF files, and processes the PDFs through the same ingestion service used by normal uploads.
 
 ---
 
@@ -1059,6 +1135,8 @@ invalid/corrupt PDFs
 textless documents
 
 empty search queries
+
+missing or invalid directory paths
 ```
 
 Internal failures return HTTP `500`.
@@ -1085,29 +1163,35 @@ Internal exception details are not exposed directly to API clients.
 
 Known exceptions are preserved between service layers so that the API layer can make the appropriate classification.
 
+For example:
+
+```text
+PDFProcessingError
+
+        ↓
+
+    HTTP 400
+
+EmbeddingError
+
+        ↓
+
+    HTTP 500
+
+VectorStoreError
+
+        ↓
+
+    HTTP 500
+```
+
+Unexpected exceptions are wrapped by the relevant service with a generic internal error while preserving the original exception as the cause for diagnostic purposes.
+
 ## Rationale
 
 Separating client errors from server errors makes the API contract predictable and prevents infrastructure failures from being incorrectly reported as client mistakes.
 
 Keeping the classification at the API boundary also allows the processing services to remain independent of HTTP concerns.
-
-For example:
-
-```text
-PDFProcessingError
-        ↓
-    HTTP 400
-
-EmbeddingError
-        ↓
-    HTTP 500
-
-VectorStoreError
-        ↓
-    HTTP 500
-```
-
-Unexpected exceptions are wrapped by the relevant service with a generic internal error while preserving the original exception as the cause for diagnostic purposes.
 
 ## Trade-offs
 
@@ -1119,23 +1203,159 @@ The API currently stops processing a multi-file request when it encounters an in
 
 A production system could introduce per-file result reporting, transactional coordination, or asynchronous job management depending on the required semantics.
 
+---
+
+# ADR-027: Bounded Embedding Batch Size
+
+## Context
+
+FastEmbed can process multiple texts in batches during document embedding.
+
+Using a very large batch can significantly increase memory usage, particularly when ingesting multiple or large PDFs inside a resource-limited Docker container.
+
+The project initially experienced substantial memory growth during multi-document ingestion.
+
+## Decision
+
+Process document chunks using a bounded embedding batch size of:
+
+```text
+EMBEDDING_BATCH_SIZE=32
+```
+
+The value is configurable through application configuration.
+
+## Rationale
+
+A bounded batch limits the amount of text and intermediate embedding data held by the embedding runtime at once.
+
+This substantially reduces peak memory usage while preserving the existing embedding model and overall synchronous ingestion design.
+
+The choice is therefore a practical runtime trade-off rather than an attempt to maximize raw embedding throughput.
+
+## Trade-offs
+
+Smaller batches can require more embedding calls and may increase total processing time compared with a larger batch.
+
+The selected value provides a practical balance for the containerized assessment environment.
+
+A larger deployment could benchmark batch size against available CPU and memory and tune it accordingly.
+
+---
+
+# ADR-028: Cleanly Isolated Retrieval Evaluation
+
+## Context
+
+The project includes a small retrieval benchmark in addition to the functional test suite.
+
+Qdrant is persistent, so evaluation data can interfere with other documents already stored in the collection.
+
+This can make retrieval metrics difficult to interpret if the benchmark runs against a collection containing unrelated application data.
+
+## Decision
+
+Run retrieval evaluation against a clean Qdrant collection/state.
+
+The evaluation script:
+
+- creates the benchmark documents,
+- ingests them through the API,
+- executes the benchmark queries through the API,
+- reports Hit@k, Precision@k, and Recall@k.
+
+The evaluation does not produce an additional results artifact as part of the assessment workflow.
+
+## Rationale
+
+Keeping evaluation isolated makes the benchmark reproducible and prevents unrelated documents from changing retrieval results.
+
+Using the actual HTTP API also exercises the same ingestion and search paths that the evaluator uses.
+
+The benchmark remains intentionally lightweight and focused on retrieval behavior rather than becoming a separate production analytics subsystem.
+
+## Trade-offs
+
+A clean evaluation state requires resetting Qdrant data before the benchmark.
+
+The current benchmark is primarily a development/evaluation aid rather than a comprehensive retrieval-quality framework.
+
+---
+
+# ADR-029: Test Isolation and Coverage Strategy
+
+## Context
+
+The application contains several external dependencies and failure paths:
+
+```text
+Qdrant
+
+embedding model
+
+PDF parsing
+
+multipart form parsing
+```
+
+Tests should verify application behavior without requiring every test to operate against shared persistent production-like state.
+
+The assessment also supplies a functional `suite.py` test that must continue to pass.
+
+## Decision
+
+Use a layered test strategy:
+
+- unit/service tests for individual components,
+- API tests using injected/fake services where appropriate,
+- integration tests for real Qdrant interactions,
+- the supplied `suite.py` functional test,
+- a separate retrieval evaluation script.
+
+Test Qdrant collections are isolated from normal application collections when integration tests need a real vector store.
+
+## Rationale
+
+This keeps the test suite fast while still exercising important infrastructure boundaries.
+
+The resulting suite verifies the main input modes, validation failures, service failures, concurrency behavior, and the supplied evaluator contract.
+
+At the current implementation point, the project test suite contains 62 passing tests, and the supplied `suite.py` contains 2 passing tests.
+
+## Trade-offs
+
+Some integration tests are slower and more infrastructure-dependent than pure unit tests.
+
+Maintaining several test layers adds some organization overhead, but it avoids turning every test into a full-stack Docker/Qdrant exercise.
+
+---
 
 # Decision Summary
 
 The resulting architecture deliberately favors:
 
 ```text
- Simple
+Simple
+
     +
- Explicit
+
+Explicit
+
     +
- Containerized
+
+Containerized
+
     +
- Testable
+
+Testable
+
     +
+
 Observable
+
     +
- Easy to explain
+
+Easy to explain
 ```
 
 over maximum scalability or infrastructure complexity.
@@ -1169,6 +1389,18 @@ The major data flow is:
                           │ Payload  │
                           └──────────┘
 ```
+
+The `/ingest/` interface currently supports:
+
+```text
+single PDF upload
+        │
+        ├── multiple PDF uploads
+        │
+        └── mounted directory path
+```
+
+with directory ingestion restricted to paths visible inside the container.
 
 Each major component has a clearly defined responsibility and can be replaced independently as requirements evolve.
 

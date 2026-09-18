@@ -1,7 +1,7 @@
 from __future__ import annotations
 from threading import Lock
 from fastembed import TextEmbedding
-from app.config import EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME
+from app.config import EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME, EMBEDDING_BATCH_SIZE
 class EmbeddingError(Exception):
     """Raised when embedding generation fails."""
 
@@ -69,7 +69,10 @@ class EmbeddingService:
                 for text in texts
             ]
 
-            embeddings = self.model.embed(prefixed_texts)
+            embeddings = self.model.embed(
+                prefixed_texts,
+                batch_size=EMBEDDING_BATCH_SIZE,
+            )
 
             results = [
                 embedding.tolist()

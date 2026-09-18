@@ -15,6 +15,7 @@ services:
       - qdrant
     volumes:
       - ./suite.py:/app/suite.py:ro
+      - ./data:/data:ro
     restart: unless-stopped
 
   qdrant:
