@@ -425,3 +425,85 @@ def test_ingest_endpoint_returns_500_on_unexpected_error(client):
     assert response.json() == {
         "error": "Internal server error."
     }
+
+def test_ingest_rejects_missing_input(client):
+    response = client.post(
+        "/ingest/",
+        files={},
+    )
+
+    assert response.status_code == 400
+    assert "error" in response.json()
+
+def test_ingest_rejects_empty_directory(
+    recording_client,
+    tmp_path,
+):
+    client, service = recording_client
+
+    response = client.post(
+        "/ingest/",
+        files={
+            "input": (
+                None,
+                str(tmp_path),
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "error" in response.json()
+    assert service.ingested_files == []
+
+def test_ingest_rejects_directory_path_pointing_to_file(
+    recording_client,
+    tmp_path,
+):
+    client, service = recording_client
+
+    file_path = tmp_path / "not-a-directory.pdf"
+    create_pdf_file(
+        file_path,
+        "This is actually a file.",
+    )
+
+    response = client.post(
+        "/ingest/",
+        files={
+            "input": (
+                None,
+                str(file_path),
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "error" in response.json()
+    assert service.ingested_files == []
+
+def test_ingest_accepts_unicode_filename(
+    recording_client,
+):
+    client, service = recording_client
+
+    pdf_bytes = create_pdf_bytes(
+        "Unicode filename test."
+    )
+
+    filename = "مستند-اختبار.pdf"
+
+    response = client.post(
+        "/ingest/",
+        files={
+            "input": (
+                filename,
+                io.BytesIO(pdf_bytes),
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json()["files"] == [filename]
+    assert service.ingested_files == [filename]

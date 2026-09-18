@@ -6,7 +6,6 @@ from app.main import app
 
 from app.services.embeddings import EmbeddingError
 from app.services.search import (
-    SearchError,
     SearchResult,
     SearchValidationError,
 )
@@ -133,3 +132,36 @@ def test_search_endpoint_returns_500_on_unexpected_error(client):
     assert response.json() == {
         "error": "Internal server error."
     }
+
+class EmptySearchService:
+    def search(self, query: str) -> list[SearchResult]:
+        return []
+
+def test_search_rejects_whitespace_only_query(client):
+    response = client.post(
+        "/search/",
+        json={"query": "     "},
+    )
+
+    assert response.status_code == 400
+
+    assert response.json() == {
+        "error": "Query cannot be empty."
+    }
+
+def test_search_rejects_malformed_json(client):
+    response = client.post(
+        "/search/",
+        content='{"query":',
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 422
+
+def test_search_rejects_non_string_query(client):
+    response = client.post(
+        "/search/",
+        json={"query": 123},
+    )
+
+    assert response.status_code == 422

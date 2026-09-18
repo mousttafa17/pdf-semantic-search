@@ -28,17 +28,6 @@ def test_long_text_is_split_into_multiple_chunks():
 
     assert len(chunks) == 3
     assert all(len(chunk.content) <= 100 for chunk in chunks)
-
-
-def test_chunks_have_sequential_indexes():
-    text = "A" * 250
-
-    chunks = chunk_text(
-        text,
-        chunk_size=100,
-        chunk_overlap=20,
-    )
-
     assert [chunk.chunk_index for chunk in chunks] == [0, 1, 2]
 
 

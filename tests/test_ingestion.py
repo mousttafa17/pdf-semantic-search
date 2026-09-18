@@ -1,7 +1,8 @@
+import logging
+import uuid
+
 import fitz
 import pytest
-import uuid
-import logging
 
 from app.services.ingestion import IngestionService, IngestionError
 from app.services.vector_store import VectorStore
@@ -134,12 +135,12 @@ def test_different_documents_get_different_ids(
 
     first_result = ingestion_service.ingest(
         file_bytes=first_pdf,
-        filename="first.pdf",
+        filename="document.pdf",
     )
 
     second_result = ingestion_service.ingest(
         file_bytes=second_pdf,
-        filename="second.pdf",
+        filename="document.pdf",
     )
 
     assert first_result.document_id != second_result.document_id

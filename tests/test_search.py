@@ -104,19 +104,20 @@ def test_search_respects_top_k(
     assert results[0].document == "relevant.pdf"
 
 
-def test_empty_query_is_rejected(
+@pytest.mark.parametrize(
+    "query",
+    [
+        "",
+        "   ",
+        "\n\t  ",
+    ],
+)
+def test_invalid_queries_are_rejected(
     search_service: SearchService,
+    query: str,
 ):
     with pytest.raises(SearchError, match="empty"):
-        search_service.search("")
-
-
-def test_whitespace_query_is_rejected(
-    search_service: SearchService,
-):
-    with pytest.raises(SearchError, match="empty"):
-        search_service.search("   ")
-
+        search_service.search(query)
 class UnexpectedEmbeddingService:
     def embed_query(self, query: str):
         raise RuntimeError("Unexpected embedding failure.")
@@ -172,3 +173,34 @@ def test_search_logs_unexpected_failure(
         search_service.search("safe test query")
 
     assert "Unexpected search failure" in caplog.text
+
+@pytest.fixture
+def empty_vector_store() -> VectorStore:
+    collection_name = f"test-empty-search-{uuid.uuid4().hex}"
+
+    store = VectorStore(
+        collection_name=collection_name,
+    )
+
+    store.ensure_collection()
+
+    yield store
+
+    if store.collection_exists():
+        store.client.delete_collection(
+            store.collection_name
+        )
+def test_search_empty_collection_returns_no_results(
+    empty_vector_store: VectorStore,
+):
+    service = SearchService(
+        embedding_service=FakeEmbeddingService(),
+        vector_store=empty_vector_store,
+        top_k=5,
+    )
+
+    results = service.search(
+        "What is semantic search?"
+    )
+
+    assert results == []

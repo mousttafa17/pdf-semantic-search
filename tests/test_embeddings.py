@@ -1,6 +1,7 @@
 import pytest
 
 from app.config import (
+    EMBEDDING_BATCH_SIZE,
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL_NAME,
 )
@@ -17,6 +18,9 @@ def embedding_service() -> EmbeddingService:
 
 def test_correct_model_is_configured():
     assert EMBEDDING_MODEL_NAME == "BAAI/bge-small-en-v1.5"
+
+def test_embedding_batch_size_is_configured():
+    assert EMBEDDING_BATCH_SIZE == 32
 
 
 def test_model_dimension_is_configured_dimension(

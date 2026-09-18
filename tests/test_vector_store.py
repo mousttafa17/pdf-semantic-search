@@ -1,7 +1,6 @@
 import uuid
 
 import pytest
-from qdrant_client.models import PointStruct
 
 from app.config import EMBEDDING_DIMENSION
 from app.services.chunking import TextChunk

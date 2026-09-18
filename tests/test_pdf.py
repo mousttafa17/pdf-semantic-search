@@ -81,3 +81,15 @@ def test_accepts_assessment_text_fixture():
     assert result.text == (
         "Artificial intelligence enables systems to learn from data."
     )
+
+def test_extract_text_preserves_unicode_text():
+    pdf_bytes = create_pdf_bytes(
+        "Café résumé naïve"
+    )
+
+    result = extract_text_from_pdf(
+        pdf_bytes,
+        "unicode.pdf",
+    )
+
+    assert "Café résumé naïve" in result.text
