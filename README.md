@@ -17,7 +17,7 @@ The project is fully containerized. The evaluator only needs Docker with Docker 
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/mousttafa17/pdf-semantic-search.git
 
 cd pdf-semantic-search
 ```
